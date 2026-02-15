@@ -1,38 +1,55 @@
 package com.threedime.api;
 
+import com.threedime.api.client.GitHubUser;
+import com.threedime.api.service.GitHubService;
 import io.quarkus.test.junit.QuarkusTest;
-import io.restassured.response.Response;
+import io.quarkus.test.junit.mockito.InjectMock;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.CoreMatchers.notNullValue;
-import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.Mockito.when;
 
 @QuarkusTest
 public class GitHubResourceTest {
 
+    @InjectMock
+    GitHubService gitHubService;
+
     @Test
-    public void testGitHubUserEndpointReturnsValidStatusCode() {
-        // Test can return either 200 (success) or 502 (GitHub API failure/rate limit)
-        // All external API errors are converted to 502 Bad Gateway
-        Response response = given()
+    public void testGitHubUserEndpointReturnsSuccessWithMockedClient() {
+        // Mock successful response from GitHub API
+        GitHubUser mockUser = new GitHubUser();
+        mockUser.setLogin("testuser");
+        mockUser.setId(12345L);
+        mockUser.setName("Test User");
+        
+        when(gitHubService.getUserInfo()).thenReturn(mockUser);
+        
+        given()
           .when().get("/github/user")
           .then()
-             .statusCode(anyOf(
-                is(200),
-                is(502)
-             ))
-          .extract().response();
+             .statusCode(200)
+             .body("login", is("testuser"))
+             .body("id", is(12345))
+             .body("name", is("Test User"));
+    }
+    
+    @Test
+    public void testGitHubUserEndpointReturns502OnClientFailure() {
+        // Mock failure from GitHub API
+        when(gitHubService.getUserInfo())
+            .thenThrow(new WebApplicationException("Failed to fetch user from GitHub API", 
+                Response.Status.BAD_GATEWAY));
         
-        // If successful, verify response contains expected fields
-        if (response.statusCode() == 200) {
-            response.then()
-                .body("login", notNullValue())
-                .body("id", notNullValue());
-        }
+        given()
+          .when().get("/github/user")
+          .then()
+             .statusCode(502);
     }
     
     @Test
