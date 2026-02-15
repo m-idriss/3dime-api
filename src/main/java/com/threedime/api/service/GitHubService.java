@@ -20,15 +20,9 @@ public class GitHubService {
     GitHubClient gitHubClient;
     
     @ConfigProperty(name = "github.username")
-    String defaultUsername;
+    String username;
     
     public GitHubUser getUserInfo() {
-        // Read from GITHUB_USERNAME env var, fallback to config property
-        String username = System.getenv("GITHUB_USERNAME");
-        if (username == null || username.isEmpty()) {
-            username = defaultUsername;
-        }
-        
         LOG.infof("Fetching GitHub user info for: %s", username);
         
         try {

@@ -9,7 +9,7 @@ import static io.restassured.RestAssured.given;
 public class GitHubResourceTest {
 
     @Test
-    public void testGitHubUserEndpointReturnsValidResponse() {
+    public void testGitHubUserEndpointHandlesGitHubApiAvailability() {
         // Test can return either 200 (success) or 502 (GitHub API failure)
         // Both are valid responses depending on GitHub API availability
         given()
@@ -22,7 +22,7 @@ public class GitHubResourceTest {
     }
     
     @Test
-    public void testHealthEndpoint() {
+    public void testHealthEndpointReturnsOk() {
         given()
           .when().get("/health")
           .then()
