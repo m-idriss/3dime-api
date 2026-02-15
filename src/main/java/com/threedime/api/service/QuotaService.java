@@ -13,7 +13,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 
 @ApplicationScoped
@@ -101,7 +101,7 @@ public class QuotaService {
      * This method runs on a separate thread and doesn't block the request.
      */
     @Asynchronous
-    CompletableFuture<Void> syncToNotionAsync(String userId, DocumentReference docRef) {
+    CompletionStage<Void> syncToNotionAsync(String userId, DocumentReference docRef) {
         try {
             DocumentSnapshot snapshot = docRef.get().get();
             if (snapshot.exists()) {
@@ -117,7 +117,7 @@ public class QuotaService {
         } catch (Exception e) {
             LOG.warnf(e, "Failed to sync to Notion for user %s (non-blocking)", userId);
         }
-        return CompletableFuture.completedFuture(null);
+        return null;
     }
 
     public UserQuota getQuotaStatus(String userId) {
