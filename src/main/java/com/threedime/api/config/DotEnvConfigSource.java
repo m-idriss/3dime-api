@@ -2,6 +2,7 @@ package com.threedime.api.config;
 
 import io.github.cdimascio.dotenv.Dotenv;
 import org.eclipse.microprofile.config.spi.ConfigSource;
+import org.jboss.logging.Logger;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -9,6 +10,8 @@ import java.util.Map;
 import java.util.Set;
 
 public class DotEnvConfigSource implements ConfigSource {
+
+    private static final Logger LOG = Logger.getLogger(DotEnvConfigSource.class);
 
     private final Map<String, String> properties;
 
@@ -24,7 +27,8 @@ public class DotEnvConfigSource implements ConfigSource {
                 loadedProperties.put(entry.getKey(), entry.getValue());
             }
         } catch (Exception e) {
-            // Ignore errors loading .env
+            // Log but don't fail if .env file has issues
+            LOG.warn("Failed to load .env file. The application will continue without .env configuration.", e);
         }
         this.properties = Collections.unmodifiableMap(loadedProperties);
     }
