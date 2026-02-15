@@ -46,17 +46,8 @@ public class DotEnvConfigSource implements ConfigSource {
 
     @Override
     public int getOrdinal() {
-        // Priority higher than application.properties (which is usually around 250-260)
-        // but lower than System Properties (400) and Env Vars (300).
-        // Let's verify standard ordinal.
-        // MicroProfile Config spec:
-        // System.getProperties() = 400
-        // System.getenv() = 300
-        // application.properties = 100
-
-        // We want .env to be treated like local environment variables, so maybe 290?
-        // Or if we want it to override application.properties defaults, > 100 is
-        // enough.
+        // Use ordinal 290 so .env overrides application.properties (100)
+        // but remains below environment variables (300) and system properties (400).
         return 290;
     }
 }
