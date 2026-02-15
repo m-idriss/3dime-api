@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 
@@ -117,7 +118,7 @@ public class QuotaService {
         } catch (Exception e) {
             LOG.warnf(e, "Failed to sync to Notion for user %s (non-blocking)", userId);
         }
-        return null;
+        return CompletableFuture.completedFuture(null);
     }
 
     public UserQuota getQuotaStatus(String userId) {
