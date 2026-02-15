@@ -162,7 +162,11 @@ curl -X POST http://localhost:8080/converter \
   -H "Content-Type: application/json" \
   -d '{
     "userId": "user123",
-    "files": ["base64EncodedImage..."]
+    "files": [
+      {
+        "dataUrl": "data:image/png;base64,base64EncodedImage..."
+      }
+    ]
   }'
 ```
 
