@@ -28,7 +28,7 @@ A production-ready REST API built with Quarkus and Java 17, designed for Google 
 - Java 17 or higher
 - Maven 3.8+
 - Google Cloud account (for deployment)
-- API Keys (for Gemini, Notion, GitHub)
+- API Keys (for Gemini and Notion)
 
 ## 🏗️ Architecture
 
@@ -45,16 +45,21 @@ The application uses environment variables for configuration. Create a `.env` fi
 
 ### Required Environment Variables
 
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `NOTION_TOKEN` | Notion API integration token | Yes | *(none)* |
+| `NOTION_TRACKING_DB_ID` | Notion database ID for tracking | Yes | *(none)* |
+
+### Optional Environment Variables
+
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `GITHUB_USERNAME` | GitHub username for profile queries | `m-idriss` |
-| `NOTION_TOKEN` | Notion API integration token | *(required)* |
-| `NOTION_TRACKING_DB_ID` | Notion database ID for tracking | *(required)* |
-| `NOTION_CMS_DB_ID` | Notion database ID for CMS content | *(optional)* |
-| `NOTION_QUOTA_DB_ID` | Notion database ID for quota management | *(optional)* |
-| `GEMINI_MODEL` | Google Gemini model identifier | *(optional)* |
-| `GEMINI_BASE_MESSAGE` | Base message for Gemini prompts | *(optional)* |
-| `GEMINI_SYSTEM_PROMPT` | System prompt for Gemini | *(optional)* |
+| `NOTION_CMS_DB_ID` | Notion database ID for CMS content | *(empty)* |
+| `NOTION_QUOTA_DB_ID` | Notion database ID for quota management | *(empty)* |
+| `GEMINI_MODEL` | Google Gemini model identifier | *(empty)* |
+| `GEMINI_BASE_MESSAGE` | Base message for Gemini prompts | *(empty)* |
+| `GEMINI_SYSTEM_PROMPT` | System prompt for Gemini | *(empty)* |
 | `PORT` | HTTP server port | `8080` |
 
 ### Configuration Files
@@ -282,4 +287,4 @@ This project is private and proprietary.
 - [Quarkus Documentation](https://quarkus.io/guides/)
 - [Google Cloud Run Documentation](https://cloud.google.com/run/docs)
 - [Buildpacks Documentation](https://buildpacks.io/)
-- [API Documentation](http://localhost:8080/api-docs) (when running locally)
+- API Documentation: `/api-docs` (available when running the application)
