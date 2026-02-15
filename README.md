@@ -1,36 +1,79 @@
 # 3dime-api
 
-A production-ready Quarkus Java 17 REST API for Google Cloud Run.
+[![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://www.oracle.com/java/)
+[![Quarkus](https://img.shields.io/badge/Quarkus-3.6.4-blue.svg)](https://quarkus.io/)
+[![Google Cloud](https://img.shields.io/badge/Google%20Cloud-Run-4285F4.svg)](https://cloud.google.com/run)
 
-## Features
+A production-ready REST API built with Quarkus and Java 17, designed for Google Cloud Run deployment. This API provides AI-powered image-to-calendar conversion, GitHub integration, Notion CMS content management, and usage analytics.
 
-- **GET /github/user** - Fetches GitHub user information from the configured username
-- **GET /health** - Health check endpoint
-- Configured for Google Cloud Run deployment with Buildpacks (no Dockerfile needed)
-- Layered architecture (Resource → Service → Client)
-- REST Client Reactive for external API calls
-- Comprehensive logging
-- Error handling with 502 Bad Gateway on external API failures
+## 🚀 Features
 
-## Configuration
+### Core Functionality
+- **🖼️ Image-to-Calendar Converter** - AI-powered conversion of images to .ics calendar files using Google Gemini
+- **📊 GitHub Integration** - Fetch user profiles, social accounts, and commit statistics
+- **📝 Notion CMS** - Content management system integration for tools and resources
+- **📈 Analytics & Tracking** - Usage statistics and conversion tracking with Firestore
+- **⚡ Quota Management** - User-based rate limiting with configurable plans
 
-The application reads configuration from `application.properties`:
+### Technical Features
+- **Reactive REST APIs** - Built with RESTEasy Reactive and REST Client Reactive
+- **Health Checks** - Liveness and readiness probes for production monitoring
+- **OpenAPI/Swagger** - Auto-generated API documentation at `/api-docs`
+- **Fault Tolerance** - Circuit breakers and retry logic with SmallRye Fault Tolerance
+- **JSON Logging** - Structured logging for production environments
+- **Firestore Integration** - Cloud-native data persistence with Google Cloud Firestore
 
-```properties
-github.username=m-idriss
-```
+## 📋 Prerequisites
 
-This can be overridden using the `GITHUB_USERNAME` environment variable.
+- Java 17 or higher
+- Maven 3.8+
+- Google Cloud account (for deployment)
+- API Keys (for Gemini, Notion, GitHub)
 
-The server listens on `0.0.0.0` and port `8080` by default. The port can be overridden using the `PORT` environment variable.
+## 🏗️ Architecture
 
-## Running Locally
+The application follows a clean layered architecture:
 
-### Development Mode
+- **Resource Layer** (`com.threedime.api.resource`) - REST endpoint controllers
+- **Service Layer** (`com.threedime.api.service`) - Business logic and orchestration
+- **Client Layer** (`com.threedime.api.client`) - External API integration (GitHub, Gemini, Notion)
+- **Model Layer** (`com.threedime.api.model`) - DTOs and request/response objects
+
+## ⚙️ Configuration
+
+The application uses environment variables for configuration. Create a `.env` file in the root directory or set these as environment variables:
+
+### Required Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `GITHUB_USERNAME` | GitHub username for profile queries | `m-idriss` |
+| `NOTION_TOKEN` | Notion API integration token | *(required)* |
+| `NOTION_TRACKING_DB_ID` | Notion database ID for tracking | *(required)* |
+| `NOTION_CMS_DB_ID` | Notion database ID for CMS content | *(optional)* |
+| `NOTION_QUOTA_DB_ID` | Notion database ID for quota management | *(optional)* |
+| `GEMINI_MODEL` | Google Gemini model identifier | *(optional)* |
+| `GEMINI_BASE_MESSAGE` | Base message for Gemini prompts | *(optional)* |
+| `GEMINI_SYSTEM_PROMPT` | System prompt for Gemini | *(optional)* |
+| `PORT` | HTTP server port | `8080` |
+
+### Configuration Files
+
+- `src/main/resources/application.properties` - Application configuration
+- `project.toml` - Buildpack configuration for Google Cloud deployment
+
+## 🛠️ Running Locally
+
+### Development Mode (with hot reload)
 
 ```bash
 mvn quarkus:dev
 ```
+
+Access the application at:
+- API: `http://localhost:8080`
+- API Documentation: `http://localhost:8080/api-docs`
+- Health Check: `http://localhost:8080/health`
 
 ### Production Mode
 
@@ -39,15 +82,124 @@ mvn clean package
 java -jar target/quarkus-app/quarkus-run.jar
 ```
 
-## Testing
+## 🧪 Testing
+
+Run all tests:
 
 ```bash
 mvn test
 ```
 
-## Deployment to Google Cloud Run
+Run with coverage:
 
-This application is designed to work with Cloud Run Buildpacks (no Dockerfile required):
+```bash
+mvn verify
+```
+
+## 📡 API Endpoints
+
+### Image-to-Calendar Converter
+
+**POST** `/converter`
+- Converts images containing calendar events to .ics format
+- Request body: `{ "userId": "string", "files": ["base64..."] }`
+- Returns: ICS calendar file content
+- Includes quota checking and usage tracking
+
+### GitHub Endpoints
+
+**GET** `/github/user`
+- Returns GitHub user profile information
+- Response: User object with profile details
+
+**GET** `/github/social`
+- Returns GitHub user's social accounts
+- Response: Array of social account links
+
+**GET** `/github/commits?months=12`
+- Returns commit statistics over specified months
+- Query param: `months` (default: 12)
+- Response: Array of commit data per month
+
+### Notion CMS
+
+**GET** `/notion/cms`
+- Fetches grouped content from Notion CMS database
+- Response: Map of content items grouped by category
+
+### Analytics
+
+**GET** `/statistics`
+- Returns usage statistics and analytics
+- Response: Statistics object with conversion metrics
+
+### Health & Documentation
+
+**GET** `/health`
+- Health check endpoint (liveness & readiness probes)
+- Response: Health status
+
+**GET** `/api-docs`
+- Interactive Swagger UI for API documentation
+
+**GET** `/api-schema`
+- OpenAPI schema definition
+
+**GET** `/`
+- Redirects to `/api-docs`
+
+## 📝 Example Usage
+
+### Convert Image to Calendar
+
+```bash
+curl -X POST http://localhost:8080/converter \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "user123",
+    "files": ["base64EncodedImage..."]
+  }'
+```
+
+### Get GitHub User Info
+
+```bash
+curl http://localhost:8080/github/user
+```
+
+### Get Commit Statistics
+
+```bash
+curl http://localhost:8080/github/commits?months=6
+```
+
+### Get CMS Content
+
+```bash
+curl http://localhost:8080/notion/cms
+```
+
+### Check Statistics
+
+```bash
+curl http://localhost:8080/statistics
+```
+
+## 🚢 Deployment to Google Cloud Run
+
+This application is optimized for Google Cloud Run with buildpack deployment (no Dockerfile required):
+
+### Deploy with Default Settings
+
+```bash
+gcloud run deploy 3dime-api \
+  --source . \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated
+```
+
+### Deploy with Environment Variables
 
 ```bash
 gcloud run deploy 3dime-api \
@@ -55,29 +207,79 @@ gcloud run deploy 3dime-api \
   --platform managed \
   --region us-central1 \
   --allow-unauthenticated \
-  --set-env-vars "GITHUB_USERNAME=m-idriss"
+  --set-env-vars "GITHUB_USERNAME=m-idriss,NOTION_TOKEN=secret_xxx,NOTION_TRACKING_DB_ID=db_xxx"
 ```
 
-The buildpack configuration is in `project.toml`.
+### Deploy with Secrets (Recommended for Production)
 
-## API Endpoints
-
-### Get GitHub User
 ```bash
-curl http://localhost:8080/github/user
+gcloud run deploy 3dime-api \
+  --source . \
+  --platform managed \
+  --region us-central1 \
+  --set-secrets "NOTION_TOKEN=notion-token:latest,GEMINI_API_KEY=gemini-key:latest"
 ```
 
-Returns the GitHub user profile for the configured username.
+The buildpack automatically:
+- Detects Java 17 from `pom.xml`
+- Builds the application with Maven
+- Creates an optimized container image
+- Configures the runtime environment
 
-### Health Check
-```bash
-curl http://localhost:8080/health
+## 🛠️ Technology Stack
+
+- **Framework**: [Quarkus 3.6.4](https://quarkus.io/) - Supersonic Subatomic Java
+- **Language**: Java 17
+- **Build Tool**: Maven
+- **Database**: Google Cloud Firestore
+- **AI Integration**: Google Gemini API
+- **External APIs**: GitHub API, Notion API
+- **Deployment**: Google Cloud Run with Buildpacks
+- **Monitoring**: SmallRye Health
+- **Documentation**: SmallRye OpenAPI / Swagger UI
+- **Resilience**: SmallRye Fault Tolerance
+- **Logging**: JSON structured logging
+
+## 📦 Project Structure
+
+```
+3dime-api/
+├── src/
+│   ├── main/
+│   │   ├── java/com/threedime/api/
+│   │   │   ├── client/          # External API clients
+│   │   │   ├── config/          # Configuration classes
+│   │   │   ├── health/          # Health check implementations
+│   │   │   ├── model/           # DTOs and domain models
+│   │   │   ├── resource/        # REST endpoint controllers
+│   │   │   └── service/         # Business logic services
+│   │   └── resources/
+│   │       └── application.properties
+│   └── test/                    # Unit and integration tests
+├── pom.xml                      # Maven dependencies
+├── project.toml                 # Buildpack configuration
+└── README.md
 ```
 
-Returns the application health status.
+## 🤝 Contributing
 
-## Architecture
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-- **Resource Layer** (`com.threedime.api.resource`): REST endpoints
-- **Service Layer** (`com.threedime.api.service`): Business logic
-- **Client Layer** (`com.threedime.api.client`): External API integration
+## 📄 License
+
+This project is private and proprietary.
+
+## 👤 Author
+
+**Mohamed Idriss** - [@m-idriss](https://github.com/m-idriss)
+
+## 🔗 Links
+
+- [Quarkus Documentation](https://quarkus.io/guides/)
+- [Google Cloud Run Documentation](https://cloud.google.com/run/docs)
+- [Buildpacks Documentation](https://buildpacks.io/)
+- [API Documentation](http://localhost:8080/api-docs) (when running locally)
