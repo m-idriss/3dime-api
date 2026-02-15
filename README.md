@@ -107,7 +107,19 @@ mvn verify
 
 **POST** `/converter`
 - Converts images containing calendar events to .ics format
-- Request body: `{ "userId": "string", "files": ["base64..."] }`
+- Request body (JSON):
+  ```json
+  {
+    "userId": "string",
+    "timeZone": "string (optional, e.g. \"America/New_York\")",
+    "currentDate": "string (optional, ISO-8601 date, e.g. \"2024-01-31\")",
+    "files": [
+      {
+        "dataUrl": "string (optional, data URL with base64 image data)",
+        "url": "string (optional, publicly accessible image URL)"
+      }
+    ]
+  }
 - Returns: ICS calendar file content
 - Includes quota checking and usage tracking
 
