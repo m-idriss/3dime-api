@@ -5,8 +5,10 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
 
 import java.net.URI;
+import org.eclipse.microprofile.openapi.annotations.Hidden;
 
 @Path("/")
+@Hidden
 public class RootResource {
 
     @GET
