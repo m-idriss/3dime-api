@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @ApplicationScoped
 public class NotionService {
@@ -26,10 +27,10 @@ public class NotionService {
     NotionClient notionClient;
 
     @ConfigProperty(name = "notion.token")
-    String token;
+    Optional<String> token;
 
     @ConfigProperty(name = "notion.cms.database-id")
-    String databaseId;
+    Optional<String> databaseId;
 
     @ConfigProperty(name = "notion.version")
     String version;
@@ -37,13 +38,18 @@ public class NotionService {
     @Inject
     ObjectMapper objectMapper;
 
+    private boolean isEnabled() {
+        return token.isPresent() && !token.get().trim().isEmpty()
+                && databaseId.isPresent() && !databaseId.get().trim().isEmpty();
+    }
+
     public Map<String, List<CmsItem>> getCmsContent() {
-        if (databaseId == null || databaseId.trim().isEmpty()) {
-            LOG.warn("Notion CMS database ID not configured (notion.cms.database-id). Returning empty content.");
+        if (!isEnabled()) {
+            LOG.warn("Notion CMS not configured. Returning empty content.");
             return new HashMap<>();
         }
 
-        LOG.infof("Fetching CMS content from Notion database: %s", databaseId);
+        LOG.infof("Fetching CMS content from Notion database: %s", databaseId.get());
 
         try {
             // Build query payload
@@ -60,8 +66,8 @@ public class NotionService {
             sort.put("property", "Rank");
             sort.put("direction", "ascending");
 
-            String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
-            JsonNode response = notionClient.queryDatabase(authToken, version, databaseId, query);
+            String authToken = token.get().startsWith("Bearer ") ? token.get() : "Bearer " + token.get();
+            JsonNode response = notionClient.queryDatabase(authToken, version, databaseId.get(), query);
 
             Map<String, List<CmsItem>> groupedContent = new HashMap<>();
 
