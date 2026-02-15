@@ -42,8 +42,12 @@ public class GeminiService {
     Optional<String> systemPrompt;
 
     public String generateIcs(ConverterRequest request) throws IOException {
-        if (baseMessageTemplate.isEmpty() || systemPrompt.isEmpty()) {
-            throw new IOException("Gemini configuration is not properly set. Please configure GEMINI_BASE_MESSAGE and GEMINI_SYSTEM_PROMPT environment variables.");
+        if (!baseMessageTemplate.isPresent() || baseMessageTemplate.get().trim().isEmpty()) {
+            throw new IOException("Gemini base message template is not configured. Please configure GEMINI_BASE_MESSAGE environment variable.");
+        }
+        
+        if (!systemPrompt.isPresent() || systemPrompt.get().trim().isEmpty()) {
+            throw new IOException("Gemini system prompt is not configured. Please configure GEMINI_SYSTEM_PROMPT environment variable.");
         }
         
         String token = getAccessToken();

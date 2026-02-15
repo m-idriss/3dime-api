@@ -39,12 +39,12 @@ public class NotionService {
     ObjectMapper objectMapper;
 
     public Map<String, List<CmsItem>> getCmsContent() {
-        if (databaseId.isEmpty() || databaseId.get().trim().isEmpty()) {
+        if (!databaseId.isPresent() || databaseId.get().trim().isEmpty()) {
             LOG.warn("Notion CMS database ID not configured (notion.cms.database-id). Returning empty content.");
             return new HashMap<>();
         }
         
-        if (token.isEmpty() || token.get().trim().isEmpty()) {
+        if (!token.isPresent() || token.get().trim().isEmpty()) {
             LOG.warn("Notion token not configured. Returning empty content.");
             return new HashMap<>();
         }
