@@ -1,0 +1,21 @@
+[[build.env]]
+name = "BP_JVM_VERSION"
+value = "17"
+
+[[build.env]]
+name = "BP_MAVEN_BUILD_ARGUMENTS"
+value = "clean package -DskipTests"
+
+[[build.env]]
+name = "BP_MAVEN_BUILT_MODULE"
+value = "."
+
+[[build.env]]
+name = "BP_MAVEN_BUILT_ARTIFACT"
+value = "target/quarkus-app/lib/* target/quarkus-app/*.jar target/quarkus-app/app/ target/quarkus-app/quarkus/"
+
+[build]
+include = [
+    "src/",
+    "pom.xml"
+]
