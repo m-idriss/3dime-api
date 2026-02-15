@@ -31,7 +31,7 @@ public class GitHubService {
             return user;
         } catch (WebApplicationException e) {
             LOG.errorf(e, "Failed to fetch GitHub user info for: %s", username);
-            // Return 502 Bad Gateway for external API failures
+            // Return 502 Bad Gateway for all external API failures
             throw new WebApplicationException("Failed to fetch user from GitHub API", 
                 Response.Status.BAD_GATEWAY);
         } catch (Exception e) {
