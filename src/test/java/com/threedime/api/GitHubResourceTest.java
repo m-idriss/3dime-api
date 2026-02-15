@@ -38,4 +38,26 @@ public class GitHubResourceTest {
           .then()
              .statusCode(200);
     }
+    
+    @Test
+    public void testReadinessEndpointReturnsOk() {
+        given()
+          .when().get("/health/ready")
+          .then()
+             .statusCode(200)
+             .body("status", org.hamcrest.Matchers.is("UP"))
+             .body("checks.size()", org.hamcrest.Matchers.greaterThan(0))
+             .body("checks.name", org.hamcrest.Matchers.hasItem("3dime-api is ready"));
+    }
+    
+    @Test
+    public void testLivenessEndpointReturnsOk() {
+        given()
+          .when().get("/health/live")
+          .then()
+             .statusCode(200)
+             .body("status", org.hamcrest.Matchers.is("UP"))
+             .body("checks.size()", org.hamcrest.Matchers.greaterThan(0))
+             .body("checks.name", org.hamcrest.Matchers.hasItem("3dime-api is live"));
+    }
 }
