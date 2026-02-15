@@ -28,6 +28,9 @@ public class QuotaService {
     @Inject
     Firestore firestore;
 
+    @Inject
+    NotionQuotaService notionQuotaService;
+
     public record QuotaCheckResult(boolean allowed, long remaining, long limit, PlanType plan) {
     }
 
@@ -82,6 +85,23 @@ public class QuotaService {
             }).get();
 
             LOG.infof("Incremented usage for user %s", userId);
+
+            // Async sync to Notion (non-blocking)
+            try {
+                DocumentSnapshot snapshot = docRef.get().get();
+                if (snapshot.exists()) {
+                    UserQuota quota = snapshot.toObject(UserQuota.class);
+                    if (quota != null) {
+                        notionQuotaService.syncToNotion(
+                                userId,
+                                quota.quotaUsed,
+                                quota.plan,
+                                quota.periodStart.toDate().toInstant());
+                    }
+                }
+            } catch (Exception e) {
+                LOG.warnf(e, "Failed to sync to Notion for user %s (non-blocking)", userId);
+            }
 
         } catch (InterruptedException | ExecutionException e) {
             LOG.errorf(e, "Error incrementing usage for user %s", userId);
