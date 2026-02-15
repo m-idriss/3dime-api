@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @ApplicationScoped
 public class NotionService {
@@ -26,10 +27,10 @@ public class NotionService {
     NotionClient notionClient;
 
     @ConfigProperty(name = "notion.token")
-    String token;
+    Optional<String> token;
 
     @ConfigProperty(name = "notion.cms.database-id")
-    String databaseId;
+    Optional<String> databaseId;
 
     @ConfigProperty(name = "notion.version")
     String version;
@@ -38,12 +39,17 @@ public class NotionService {
     ObjectMapper objectMapper;
 
     public Map<String, List<CmsItem>> getCmsContent() {
-        if (databaseId == null || databaseId.trim().isEmpty()) {
+        if (databaseId.isEmpty() || databaseId.get().trim().isEmpty()) {
             LOG.warn("Notion CMS database ID not configured (notion.cms.database-id). Returning empty content.");
             return new HashMap<>();
         }
+        
+        if (token.isEmpty() || token.get().trim().isEmpty()) {
+            LOG.warn("Notion token not configured. Returning empty content.");
+            return new HashMap<>();
+        }
 
-        LOG.infof("Fetching CMS content from Notion database: %s", databaseId);
+        LOG.infof("Fetching CMS content from Notion database: %s", databaseId.get());
 
         try {
             // Build query payload
@@ -60,8 +66,9 @@ public class NotionService {
             sort.put("property", "Rank");
             sort.put("direction", "ascending");
 
-            String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
-            JsonNode response = notionClient.queryDatabase(authToken, version, databaseId, query);
+            String tokenValue = token.get();
+            String authToken = tokenValue.startsWith("Bearer ") ? tokenValue : "Bearer " + tokenValue;
+            JsonNode response = notionClient.queryDatabase(authToken, version, databaseId.get(), query);
 
             Map<String, List<CmsItem>> groupedContent = new HashMap<>();
 

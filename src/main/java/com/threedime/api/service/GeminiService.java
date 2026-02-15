@@ -15,6 +15,7 @@ import org.jboss.logging.Logger;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -35,17 +36,21 @@ public class GeminiService {
     String modelName;
 
     @ConfigProperty(name = "gemini.base-message")
-    String baseMessageTemplate;
+    Optional<String> baseMessageTemplate;
 
     @ConfigProperty(name = "gemini.system-prompt")
-    String systemPrompt;
+    Optional<String> systemPrompt;
 
     public String generateIcs(ConverterRequest request) throws IOException {
+        if (baseMessageTemplate.isEmpty() || systemPrompt.isEmpty()) {
+            throw new IOException("Gemini configuration is not properly set. Please configure GEMINI_BASE_MESSAGE and GEMINI_SYSTEM_PROMPT environment variables.");
+        }
+        
         String token = getAccessToken();
 
         String today = request.currentDate != null ? request.currentDate : java.time.LocalDate.now().toString();
         String tz = request.timeZone != null ? request.timeZone : "UTC";
-        String baseMessage = baseMessageTemplate.replace("{today}", today).replace("{tz}", tz);
+        String baseMessage = baseMessageTemplate.get().replace("{today}", today).replace("{tz}", tz);
 
         ObjectNode requestBody = objectMapper.createObjectNode();
         ArrayNode contents = requestBody.putArray("contents");
@@ -53,7 +58,7 @@ public class GeminiService {
         ArrayNode parts = contentPart.putArray("parts");
 
         // Add user prompt logic
-        String userPrompt = systemPrompt + "\n\n" + baseMessage;
+        String userPrompt = systemPrompt.get() + "\n\n" + baseMessage;
         parts.addObject().put("text", userPrompt);
 
         // Add images

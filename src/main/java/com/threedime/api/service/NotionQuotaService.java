@@ -30,7 +30,7 @@ public class NotionQuotaService {
     NotionClient notionClient;
 
     @ConfigProperty(name = "notion.token")
-    String token;
+    Optional<String> token;
 
     @ConfigProperty(name = "notion.quota.database-id")
     Optional<String> quotaDbId;
@@ -42,7 +42,8 @@ public class NotionQuotaService {
     ObjectMapper objectMapper;
 
     private boolean isEnabled() {
-        return quotaDbId.isPresent() && !quotaDbId.get().trim().isEmpty();
+        return quotaDbId.isPresent() && !quotaDbId.get().trim().isEmpty() &&
+               token.isPresent() && !token.get().trim().isEmpty();
     }
 
     /**
@@ -58,7 +59,8 @@ public class NotionQuotaService {
             filter.put("property", "User ID");
             filter.putObject("title").put("equals", userId);
 
-            String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
+            String tokenValue = token.get();
+            String authToken = tokenValue.startsWith("Bearer ") ? tokenValue : "Bearer " + tokenValue;
             JsonNode response = notionClient.queryDatabase(authToken, version, quotaDbId.get(), query);
 
             if (response.has("results") && response.get("results").isArray() && response.get("results").size() > 0) {
@@ -98,7 +100,8 @@ public class NotionQuotaService {
             // Plan (select property)
             properties.putObject("Plan").putObject("select").put("name", plan.name());
 
-            String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
+            String tokenValue = token.get();
+            String authToken = tokenValue.startsWith("Bearer ") ? tokenValue : "Bearer " + tokenValue;
 
             if (pageId != null) {
                 // Update existing page
@@ -135,7 +138,8 @@ public class NotionQuotaService {
             filter.put("property", "User ID");
             filter.putObject("title").put("equals", userId);
 
-            String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
+            String tokenValue = token.get();
+            String authToken = tokenValue.startsWith("Bearer ") ? tokenValue : "Bearer " + tokenValue;
             JsonNode response = notionClient.queryDatabase(authToken, version, quotaDbId.get(), query);
 
             if (!response.has("results") || response.get("results").size() == 0) {
