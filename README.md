@@ -280,7 +280,7 @@ This project is private and proprietary.
 
 ## 👤 Author
 
-**Mohamed Idriss** - [@m-idriss](https://github.com/m-idriss)
+**Idriss** - [@m-idriss](https://github.com/m-idriss)
 
 ## 🔗 Links
 
