@@ -4,6 +4,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.endsWith;
 
 @QuarkusTest
 public class RootResourceTest {
@@ -15,6 +16,6 @@ public class RootResourceTest {
             .when().get("/")
             .then()
                 .statusCode(307)
-                .header("Location", org.hamcrest.Matchers.endsWith("/api-docs"));
+                .header("Location", endsWith("/api-docs"));
     }
 }
