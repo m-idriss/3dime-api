@@ -12,7 +12,7 @@ public class NotionResourceTest {
 
     @Test
     public void testNotionCmsEndpointReturnsOkWithEmptyMap() {
-        // With default empty notion.cms.database-id, should return 200 and empty map
+        // When notion.cms.database-id is not configured, should return 200 and empty map
         given()
           .when().get("/notion/cms")
           .then()
