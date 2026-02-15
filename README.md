@@ -19,7 +19,7 @@ A production-ready REST API built with Quarkus and Java 17, designed for Google 
 - **Reactive REST APIs** - Built with RESTEasy Reactive and REST Client Reactive
 - **Health Checks** - Liveness and readiness probes for production monitoring
 - **OpenAPI/Swagger** - Auto-generated API documentation at `/api-docs`
-- **Fault Tolerance** - Circuit breakers and retry logic with SmallRye Fault Tolerance
+- **Fault Tolerance** - Retry logic and timeouts with SmallRye Fault Tolerance
 - **JSON Logging** - Structured logging for production environments
 - **Firestore Integration** - Cloud-native data persistence with Google Cloud Firestore
 
