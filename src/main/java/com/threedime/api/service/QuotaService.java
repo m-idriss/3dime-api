@@ -6,12 +6,14 @@ import com.threedime.api.model.PlanType;
 import com.threedime.api.model.UserQuota;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.faulttolerance.Asynchronous;
 import org.jboss.logging.Logger;
 
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 @ApplicationScoped
@@ -86,26 +88,36 @@ public class QuotaService {
 
             LOG.infof("Incremented usage for user %s", userId);
 
-            // Async sync to Notion (non-blocking)
-            try {
-                DocumentSnapshot snapshot = docRef.get().get();
-                if (snapshot.exists()) {
-                    UserQuota quota = snapshot.toObject(UserQuota.class);
-                    if (quota != null) {
-                        notionQuotaService.syncToNotion(
-                                userId,
-                                quota.quotaUsed,
-                                quota.plan,
-                                quota.periodStart.toDate().toInstant());
-                    }
-                }
-            } catch (Exception e) {
-                LOG.warnf(e, "Failed to sync to Notion for user %s (non-blocking)", userId);
-            }
+            // Async sync to Notion (non-blocking) - fire and forget
+            syncToNotionAsync(userId, docRef);
 
         } catch (InterruptedException | ExecutionException e) {
             LOG.errorf(e, "Error incrementing usage for user %s", userId);
         }
+    }
+
+    /**
+     * Asynchronously sync quota data to Notion.
+     * This method runs on a separate thread and doesn't block the request.
+     */
+    @Asynchronous
+    CompletableFuture<Void> syncToNotionAsync(String userId, DocumentReference docRef) {
+        try {
+            DocumentSnapshot snapshot = docRef.get().get();
+            if (snapshot.exists()) {
+                UserQuota quota = snapshot.toObject(UserQuota.class);
+                if (quota != null) {
+                    notionQuotaService.syncToNotion(
+                            userId,
+                            quota.quotaUsed,
+                            quota.plan,
+                            quota.periodStart.toDate().toInstant());
+                }
+            }
+        } catch (Exception e) {
+            LOG.warnf(e, "Failed to sync to Notion for user %s (non-blocking)", userId);
+        }
+        return CompletableFuture.completedFuture(null);
     }
 
     public UserQuota getQuotaStatus(String userId) {
