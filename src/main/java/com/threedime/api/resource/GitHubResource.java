@@ -26,7 +26,7 @@ public class GitHubResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Operation(summary = "Get GitHub user information", description = "Retrieves the authenticated GitHub user information")
     @APIResponse(responseCode = "200", description = "User information retrieved successfully")
-    @APIResponse(responseCode = "500", description = "Internal server error")
+    @APIResponse(responseCode = "502", description = "Failed to fetch user from GitHub API")
     public GitHubUser getUser() {
         LOG.info("GET /github/user endpoint called");
         return gitHubService.getUserInfo();
