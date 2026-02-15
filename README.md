@@ -120,7 +120,7 @@ mvn verify
       }
     ]
   }
-- Returns: ICS calendar file content
+- Returns: JSON response with `icsContent` field containing the ICS calendar file
 - Includes quota checking and usage tracking
 
 ### GitHub Endpoints
