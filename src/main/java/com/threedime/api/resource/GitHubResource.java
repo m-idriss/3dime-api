@@ -10,6 +10,10 @@ import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import com.fasterxml.jackson.databind.JsonNode;
+import jakarta.ws.rs.QueryParam;
+import java.util.List;
+import java.util.Map;
 import org.jboss.logging.Logger;
 
 @Path("/github")
@@ -30,5 +34,31 @@ public class GitHubResource {
     public GitHubUser getUser() {
         LOG.info("GET /github/user endpoint called");
         return gitHubService.getUserInfo();
+    }
+
+    @GET
+    @Path("/social")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Operation(summary = "Get GitHub social accounts", description = "Retrieves the authenticated GitHub user's social accounts")
+    public JsonNode getSocialAccounts() {
+        LOG.info("GET /github/social endpoint called");
+        return gitHubService.getSocialAccounts();
+    }
+
+    @GET
+    @Path("/commits")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Operation(summary = "Get GitHub commit statistics", description = "Retrieves the authenticated GitHub user's commit statistics over a period")
+    public List<Map<String, Object>> getCommits(@QueryParam("months") String monthsStr) {
+        LOG.info("GET /github/commits endpoint called");
+        int months = 12; // default
+        if (monthsStr != null) {
+            try {
+                months = Integer.parseInt(monthsStr);
+            } catch (NumberFormatException e) {
+                // ignore, use default
+            }
+        }
+        return gitHubService.getCommits(months);
     }
 }
