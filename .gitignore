@@ -35,3 +35,6 @@ Thumbs.db
 
 # Quarkus
 .quarkus/
+
+# env
+.env
