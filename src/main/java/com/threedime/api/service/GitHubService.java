@@ -83,7 +83,12 @@ public class GitHubService {
     body.put("query", query);
 
     // We need a token for GraphQL
-    String effectiveToken = token.orElse("");
+    if (token.isEmpty() || token.get().trim().isEmpty()) {
+      LOG.warn("GitHub token not configured. Skipping commit statistics fetch.");
+      return new ArrayList<>();
+    }
+
+    String effectiveToken = token.get();
     String authToken = effectiveToken.startsWith("Bearer ") ? effectiveToken : "Bearer " + effectiveToken;
 
     JsonNode response = gitHubClient.postGraphql(authToken, body);
