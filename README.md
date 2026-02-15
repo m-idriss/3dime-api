@@ -28,7 +28,8 @@ A production-ready REST API built with Quarkus and Java 17, designed for Google 
 - Java 17 or higher
 - Maven 3.8+
 - Google Cloud account (for deployment)
-- API Keys (for Gemini and Notion)
+- Notion API token
+- Google Cloud service account with Gemini API access (used via Application Default Credentials, e.g., on Cloud Run)
 
 ## 🏗️ Architecture
 
