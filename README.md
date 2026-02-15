@@ -45,10 +45,10 @@ The application uses environment variables for configuration. Create a `.env` fi
 
 ### Required Environment Variables
 
-| Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
-| `NOTION_TOKEN` | Notion API integration token | Yes | *(none)* |
-| `NOTION_TRACKING_DB_ID` | Notion database ID for tracking | Yes | *(none)* |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NOTION_TOKEN` | Notion API integration token | *(none)* |
+| `NOTION_TRACKING_DB_ID` | Notion database ID for tracking | *(none)* |
 
 ### Optional Environment Variables
 
