@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.notNullValue;
+import static org.hamcrest.Matchers.*;
 
 @QuarkusTest
 public class GitHubResourceTest {
@@ -17,9 +18,9 @@ public class GitHubResourceTest {
         Response response = given()
           .when().get("/github/user")
           .then()
-             .statusCode(org.hamcrest.Matchers.anyOf(
-                org.hamcrest.Matchers.is(200),
-                org.hamcrest.Matchers.is(502)
+             .statusCode(anyOf(
+                is(200),
+                is(502)
              ))
           .extract().response();
         
@@ -45,9 +46,9 @@ public class GitHubResourceTest {
           .when().get("/health/ready")
           .then()
              .statusCode(200)
-             .body("status", org.hamcrest.Matchers.is("UP"))
-             .body("checks.size()", org.hamcrest.Matchers.greaterThan(0))
-             .body("checks.name", org.hamcrest.Matchers.hasItem("3dime-api is ready"));
+             .body("status", is("UP"))
+             .body("checks.size()", greaterThan(0))
+             .body("checks.name", hasItem("3dime-api is ready"));
     }
     
     @Test
@@ -56,8 +57,8 @@ public class GitHubResourceTest {
           .when().get("/health/live")
           .then()
              .statusCode(200)
-             .body("status", org.hamcrest.Matchers.is("UP"))
-             .body("checks.size()", org.hamcrest.Matchers.greaterThan(0))
-             .body("checks.name", org.hamcrest.Matchers.hasItem("3dime-api is live"));
+             .body("status", is("UP"))
+             .body("checks.size()", greaterThan(0))
+             .body("checks.name", hasItem("3dime-api is live"));
     }
 }
