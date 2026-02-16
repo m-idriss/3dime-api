@@ -220,9 +220,12 @@ jobs:
           cat CHANGELOG.md
           echo "----------------------"
 
-          # ✅ Safely export multi-line changelog output (no delimiter issues)
-          CHANGELOG=$(awk '{printf "%s\\n", $0}' CHANGELOG.md)
-          echo "changelog=$CHANGELOG" >> "$GITHUB_OUTPUT"
+          # ✅ Export multi-line changelog output using official delimiter syntax
+          {
+            echo 'changelog<<EOF'
+            cat CHANGELOG.md
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
