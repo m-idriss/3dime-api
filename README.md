@@ -1,10 +1,10 @@
 # 3dime-api
 
-[![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://www.oracle.com/java/)
+[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
 [![Quarkus](https://img.shields.io/badge/Quarkus-3.6.4-blue.svg)](https://quarkus.io/)
 [![Google Cloud](https://img.shields.io/badge/Google%20Cloud-Run-4285F4.svg)](https://cloud.google.com/run)
 
-A production-ready REST API built with Quarkus and Java 17, designed for Google Cloud Run deployment. This API provides AI-powered image-to-calendar conversion, GitHub integration, Notion CMS content management, and usage analytics.
+A production-ready REST API built with Quarkus and Java 21, designed for Google Cloud Run deployment. This API provides AI-powered image-to-calendar conversion, GitHub integration, Notion CMS content management, and usage analytics.
 
 ## 🚀 Features
 
@@ -25,7 +25,7 @@ A production-ready REST API built with Quarkus and Java 17, designed for Google 
 
 ## 📋 Prerequisites
 
-- Java 17 or higher
+- Java 21 or higher
 - Maven 3.8+
 - Google Cloud account (for deployment)
 - Notion API token
@@ -256,7 +256,7 @@ gcloud run deploy 3dime-api \
 ```
 
 The buildpack automatically:
-- Detects Java 17 from `pom.xml`
+- Detects Java 21 from `pom.xml`
 - Builds the application with Maven
 - Creates an optimized container image
 - Configures the runtime environment
@@ -264,7 +264,7 @@ The buildpack automatically:
 ## 🛠️ Technology Stack
 
 - **Framework**: [Quarkus 3.6.4](https://quarkus.io/) - Supersonic Subatomic Java
-- **Language**: Java 17
+- **Language**: Java 21
 - **Build Tool**: Maven
 - **Database**: Google Cloud Firestore
 - **AI Integration**: Google Gemini API
