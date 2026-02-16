@@ -33,12 +33,25 @@ A production-ready REST API built with Quarkus and Java 17, designed for Google 
 
 ## 🏗️ Architecture
 
-The application follows a clean layered architecture:
+The application follows a **feature-based architecture** where code is organized by domain/feature rather than by technical layer. This promotes better modularity, maintainability, and domain-driven design:
 
-- **Resource Layer** (`com.threedime.api.resource`) - REST endpoint controllers
-- **Service Layer** (`com.threedime.api.service`) - Business logic and orchestration
-- **Client Layer** (`com.threedime.api.client`) - External API integration (GitHub, Gemini, Notion)
-- **Model Layer** (`com.threedime.api.model`) - DTOs and request/response objects
+- **Converter Feature** (`com.threedime.api.feature.converter`) - Image-to-calendar conversion
+  - Resources, services, clients, and models for AI-powered image conversion
+  - Includes quota management and tracking services
+  
+- **GitHub Feature** (`com.threedime.api.feature.github`) - GitHub integration
+  - Resources, services, clients, and models for GitHub API operations
+  - User profiles, social accounts, and commit statistics
+  
+- **Notion Feature** (`com.threedime.api.feature.notion`) - Notion CMS
+  - Resources, services, and clients for Notion database integration
+  - CMS content management
+  
+- **Statistics Feature** (`com.threedime.api.feature.statistics`) - Analytics
+  - Resources for usage statistics and analytics
+  
+- **Shared Components** (`com.threedime.api.feature.shared`) - Cross-cutting concerns
+  - Configuration, health checks, and common utilities
 
 ## ⚙️ Configuration
 
@@ -269,17 +282,18 @@ The buildpack automatically:
 ├── src/
 │   ├── main/
 │   │   ├── java/com/threedime/api/
-│   │   │   ├── client/          # External API clients
-│   │   │   ├── config/          # Configuration classes
-│   │   │   ├── health/          # Health check implementations
-│   │   │   ├── model/           # DTOs and domain models
-│   │   │   ├── resource/        # REST endpoint controllers
-│   │   │   └── service/         # Business logic services
+│   │   │   ├── feature/
+│   │   │   │   ├── converter/    # Image-to-calendar conversion feature
+│   │   │   │   ├── github/       # GitHub integration feature
+│   │   │   │   ├── notion/       # Notion CMS feature
+│   │   │   │   ├── statistics/   # Analytics feature
+│   │   │   │   └── shared/       # Shared components (config, health)
+│   │   │   └── ThreeDimeApplication.java
 │   │   └── resources/
 │   │       └── application.properties
-│   └── test/                    # Unit and integration tests
-├── pom.xml                      # Maven dependencies
-├── project.toml                 # Buildpack configuration
+│   └── test/                     # Unit and integration tests
+├── pom.xml                       # Maven dependencies
+├── project.toml                  # Buildpack configuration
 └── README.md
 ```
 

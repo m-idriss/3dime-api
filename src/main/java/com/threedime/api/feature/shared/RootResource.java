@@ -1,4 +1,4 @@
-package com.threedime.api.resource;
+package com.threedime.api.feature.shared;
 
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;

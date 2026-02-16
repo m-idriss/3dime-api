@@ -1,4 +1,4 @@
-package com.threedime.api.model;
+package com.threedime.api.feature.converter;
 
 public class ConverterResponse {
     public boolean success;

@@ -1,4 +1,4 @@
-package com.threedime.api.client;
+package com.threedime.api.feature.converter;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.ws.rs.HeaderParam;

@@ -1,4 +1,4 @@
-package com.threedime.api.client;
+package com.threedime.api.feature.github;
 
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -12,7 +12,7 @@ import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 import com.fasterxml.jackson.databind.JsonNode;
 
-@RegisterRestClient(configKey = "com.threedime.api.client.GitHubClient")
+@RegisterRestClient(configKey = "com.threedime.api.feature.github.GitHubClient")
 public interface GitHubClient {
 
     @GET

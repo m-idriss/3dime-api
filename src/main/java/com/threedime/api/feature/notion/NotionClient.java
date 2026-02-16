@@ -1,4 +1,4 @@
-package com.threedime.api.client;
+package com.threedime.api.feature.notion;
 
 import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.PATCH;

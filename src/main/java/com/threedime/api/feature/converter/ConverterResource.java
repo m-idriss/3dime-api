@@ -1,11 +1,5 @@
-package com.threedime.api.resource;
+package com.threedime.api.feature.converter;
 
-import com.threedime.api.model.ConverterRequest;
-import com.threedime.api.model.ConverterResponse;
-import com.threedime.api.service.GeminiService;
-import com.threedime.api.service.QuotaService;
-import com.threedime.api.service.QuotaService.QuotaCheckResult;
-import com.threedime.api.service.TrackingService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
@@ -49,7 +43,7 @@ public class ConverterResource {
         }
 
         // Check Quota
-        QuotaCheckResult quota = quotaService.checkQuota(userId);
+        QuotaService.QuotaCheckResult quota = quotaService.checkQuota(userId);
         if (!quota.allowed()) {
             trackingService.logQuotaExceeded(userId, (int) (quota.limit() - quota.remaining()), (int) quota.limit(),
                     quota.plan().toString(), domain);

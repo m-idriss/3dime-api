@@ -1,4 +1,4 @@
-package com.threedime.api.client;
+package com.threedime.api.feature.github;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;

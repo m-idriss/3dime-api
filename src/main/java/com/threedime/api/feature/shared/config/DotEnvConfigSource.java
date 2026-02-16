@@ -1,4 +1,4 @@
-package com.threedime.api.config;
+package com.threedime.api.feature.shared.config;
 
 import io.github.cdimascio.dotenv.Dotenv;
 import org.eclipse.microprofile.config.spi.ConfigSource;

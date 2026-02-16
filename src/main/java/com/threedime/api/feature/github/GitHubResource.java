@@ -1,7 +1,5 @@
-package com.threedime.api.resource;
+package com.threedime.api.feature.github;
 
-import com.threedime.api.client.GitHubUser;
-import com.threedime.api.service.GitHubService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;

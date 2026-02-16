@@ -1,4 +1,4 @@
-package com.threedime.api.model;
+package com.threedime.api.feature.converter;
 
 import java.util.List;
 
