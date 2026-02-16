@@ -1,7 +1,5 @@
 package com.threedime.api.feature.github;
 
-import com.threedime.api.feature.github.GitHubClient;
-import com.threedime.api.feature.github.GitHubUser;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.WebApplicationException;

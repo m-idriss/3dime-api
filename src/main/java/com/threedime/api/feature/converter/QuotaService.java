@@ -2,8 +2,6 @@ package com.threedime.api.feature.converter;
 
 import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.*;
-import com.threedime.api.feature.converter.PlanType;
-import com.threedime.api.feature.converter.UserQuota;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
