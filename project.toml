@@ -12,7 +12,7 @@ value = "."
 
 [[build.env]]
 name = "BP_MAVEN_BUILT_ARTIFACT"
-value = "target/quarkus-app/quarkus-run.jar"
+value = "target/3dime-api-runner.jar"
 
 [build]
 include = [
