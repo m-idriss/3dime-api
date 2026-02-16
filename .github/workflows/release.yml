@@ -247,14 +247,6 @@ jobs:
           draft: false
           prerelease: ${{ inputs.prerelease }}
 
-      - name: Upload build artifacts (if requested)
-        if: inputs.include_build_artifacts == true
-        uses: actions/upload-artifact@v6
-        with:
-          name: build-artifacts-${{ steps.new_version.outputs.version }}
-          path: dist/photocalia/
-          retention-days: 90
-
       - name: Summary
         run: |
           echo "## ✅ Release Created Successfully!" >> "$GITHUB_STEP_SUMMARY"
