@@ -1,7 +1,7 @@
-package com.threedime.api.resource;
+package com.threedime.api.feature.statistics;
 
-import com.threedime.api.service.TrackingService;
-import com.threedime.api.service.TrackingService.Statistics;
+import com.threedime.api.feature.converter.TrackingService;
+import com.threedime.api.feature.converter.TrackingService.Statistics;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;

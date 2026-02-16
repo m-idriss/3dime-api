@@ -1,11 +1,11 @@
-package com.threedime.api.resource;
+package com.threedime.api.feature.converter;
 
-import com.threedime.api.model.ConverterRequest;
-import com.threedime.api.model.ConverterResponse;
-import com.threedime.api.service.GeminiService;
-import com.threedime.api.service.QuotaService;
-import com.threedime.api.service.QuotaService.QuotaCheckResult;
-import com.threedime.api.service.TrackingService;
+import com.threedime.api.feature.converter.ConverterRequest;
+import com.threedime.api.feature.converter.ConverterResponse;
+import com.threedime.api.feature.converter.GeminiService;
+import com.threedime.api.feature.converter.QuotaService;
+import com.threedime.api.feature.converter.QuotaService.QuotaCheckResult;
+import com.threedime.api.feature.converter.TrackingService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;

@@ -1,4 +1,4 @@
-package com.threedime.api.health;
+package com.threedime.api.feature.shared.health;
 
 import org.eclipse.microprofile.health.HealthCheck;
 import org.eclipse.microprofile.health.HealthCheckResponse;

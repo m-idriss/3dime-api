@@ -1,12 +1,12 @@
-package com.threedime.api.service;
+package com.threedime.api.feature.converter;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.auth.oauth2.GoogleCredentials;
-import com.threedime.api.client.GeminiClient;
-import com.threedime.api.model.ConverterRequest;
+import com.threedime.api.feature.converter.GeminiClient;
+import com.threedime.api.feature.converter.ConverterRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
