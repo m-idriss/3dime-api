@@ -1,6 +1,6 @@
 [[build.env]]
 name = "BP_JVM_VERSION"
-value = "17"
+value = "21"
 
 [[build.env]]
 name = "BP_MAVEN_BUILD_ARGUMENTS"
