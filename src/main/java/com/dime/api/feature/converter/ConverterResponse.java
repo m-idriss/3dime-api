@@ -1,12 +1,10 @@
 package com.dime.api.feature.converter;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 public class ConverterResponse {
     public boolean success;
     public String icsContent;
