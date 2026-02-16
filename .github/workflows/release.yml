@@ -55,9 +55,6 @@ jobs:
           if [ -n "$CURRENT_VERSION" ]; then
             CURRENT_VERSION=${CURRENT_VERSION#v}
             echo "source=git_tag" >> "$GITHUB_OUTPUT"
-          elif [ -f "package.json" ]; then
-            CURRENT_VERSION=$(node -p "require('./package.json').version")
-            echo "source=package.json" >> "$GITHUB_OUTPUT"
           else
             CURRENT_VERSION="0.0.0"
             echo "source=default" >> "$GITHUB_OUTPUT"
