@@ -1,14 +1,16 @@
 package com.dime.api.feature.converter;
 
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
 public class ConverterResponse {
     public boolean success;
     public String icsContent;
     public String error;
     public String message;
     public Object details;
-
-    public ConverterResponse() {
-    }
 
     public ConverterResponse(boolean success, String icsContent) {
         this.success = success;

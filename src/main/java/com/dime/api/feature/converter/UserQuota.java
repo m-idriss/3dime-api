@@ -1,7 +1,13 @@
 package com.dime.api.feature.converter;
 
 import com.google.cloud.Timestamp;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class UserQuota {
     public PlanType plan;
     public long quotaUsed;
@@ -9,17 +15,4 @@ public class UserQuota {
     public Timestamp periodStart;
     public Timestamp createdAt;
     public Timestamp updatedAt;
-
-    public UserQuota() {
-    }
-
-    public UserQuota(PlanType plan, long quotaUsed, long quotaLimit, Timestamp periodStart, Timestamp createdAt,
-            Timestamp updatedAt) {
-        this.plan = plan;
-        this.quotaUsed = quotaUsed;
-        this.quotaLimit = quotaLimit;
-        this.periodStart = periodStart;
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
-    }
 }
