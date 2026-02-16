@@ -29,8 +29,8 @@
   </developers>
 
   <scm>
-    <connection>scm:git:git://github.com/m-idriss/3dime-api.git</connection>
-    <developerConnection>scm:git:ssh://github.com:m-idriss/3dime-api.git</developerConnection>
+    <connection>scm:git:https://github.com/m-idriss/3dime-api.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/m-idriss/3dime-api.git</developerConnection>
     <url>https://github.com/m-idriss/3dime-api</url>
     <tag>HEAD</tag>
   </scm>
