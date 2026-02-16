@@ -1,0 +1,250 @@
+name: 🏷️ Create Tag and Release
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - custom
+        default: patch
+      custom_version:
+        description: 'Custom version (only if version_type is "custom", e.g., 1.2.3)'
+        required: false
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+      include_build_artifacts:
+        description: 'Include build artifacts in release'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Determine current version
+        id: current_version
+        run: |
+          CURRENT_VERSION=$( (git tag --sort=-v:refname | head -1) 2>/dev/null || echo "")
+
+          if [ -n "$CURRENT_VERSION" ]; then
+            CURRENT_VERSION=${CURRENT_VERSION#v}
+            echo "source=git_tag" >> "$GITHUB_OUTPUT"
+          else
+            CURRENT_VERSION="0.0.0"
+            echo "source=default" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Current version: $CURRENT_VERSION"
+
+      - name: Calculate new version
+        id: new_version
+        run: |
+          CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
+          VERSION_TYPE="${{ inputs.version_type }}"
+          CUSTOM_VERSION="${{ inputs.custom_version }}"
+
+          IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT_VERSION"
+          MAJOR="${VERSION_PARTS[0]:-0}"
+          MINOR="${VERSION_PARTS[1]:-0}"
+          PATCH="${VERSION_PARTS[2]:-0}"
+
+          if [ "$VERSION_TYPE" = "custom" ]; then
+            if [ -z "$CUSTOM_VERSION" ]; then
+              echo "Error: Custom version not provided"
+              exit 1
+            fi
+            NEW_VERSION="$CUSTOM_VERSION"
+          elif [ "$VERSION_TYPE" = "major" ]; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+            NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          elif [ "$VERSION_TYPE" = "minor" ]; then
+            MINOR=$((MINOR + 1))
+            PATCH=0
+            NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          elif [ "$VERSION_TYPE" = "patch" ]; then
+            PATCH=$((PATCH + 1))
+            NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          else
+            echo "Error: Invalid version type"
+            exit 1
+          fi
+
+          if ! [[ "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: Invalid version format: $NEW_VERSION"
+            exit 1
+          fi
+
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "New version: $NEW_VERSION"
+          echo "New tag: v$NEW_VERSION"
+
+      - name: Check if tag already exists
+        run: |
+          TAG="${{ steps.new_version.outputs.tag }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Error: Tag $TAG already exists"
+            exit 1
+          fi
+          echo "Tag $TAG does not exist, proceeding..."
+
+      - name: Update package.json version
+        run: |
+          NEW_VERSION="${{ steps.new_version.outputs.version }}"
+          yarn version --new-version "$NEW_VERSION" --no-git-tag-version
+          echo "Updated package.json to version $NEW_VERSION"
+
+      - name: Commit version bump
+        run: |
+          NEW_VERSION="${{ steps.new_version.outputs.version }}"
+          git add package.json yarn.lock
+          git commit -m "chore: bump version to $NEW_VERSION" || echo "No changes to commit"
+
+      - name: Build project (if requested)
+        if: inputs.include_build_artifacts == true
+        run: yarn build --configuration=production
+
+      - name: Create Git tag
+        run: |
+          TAG="${{ steps.new_version.outputs.tag }}"
+          NEW_VERSION="${{ steps.new_version.outputs.version }}"
+          git tag -a "$TAG" -m "Release $NEW_VERSION"
+          echo "Created tag: $TAG"
+
+      - name: Push changes and tag
+        run: |
+          TAG="${{ steps.new_version.outputs.tag }}"
+          git push origin HEAD:main
+          git push origin "$TAG"
+          echo "Pushed changes and tag to repository"
+
+      - name: Generate changelog
+        id: changelog
+        shell: bash
+        run: |
+          set -e
+          TAG="${{ steps.new_version.outputs.tag }}"
+          PREV_TAG=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || echo "")
+
+          if [ -z "$PREV_TAG" ]; then
+            {
+              echo "## What's New in $TAG"
+              echo ""
+              echo "This is the first release! 🎉"
+              echo ""
+              echo "### All Commits"
+              echo ""
+              git log --pretty=format:"- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))"
+            } > CHANGELOG.md
+          else
+            # Generate changelog with proper formatting
+            {
+              echo "## What's New in $TAG"
+              echo ""
+              echo "### Changes since $PREV_TAG"
+              echo ""
+
+              # Features
+              FEATURES=$(git log "$PREV_TAG..$TAG" --pretty=format:"- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))" --grep="^feat" 2>/dev/null)
+              if [ -n "$FEATURES" ]; then
+              echo "#### 🚀 Features"
+                echo ""
+                echo "$FEATURES"
+              echo ""
+              fi
+
+              # Bug Fixes
+              FIXES=$(git log "$PREV_TAG..$TAG" --pretty=format:"- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))" --grep="^fix" 2>/dev/null)
+              if [ -n "$FIXES" ]; then
+              echo "#### 🐛 Bug Fixes"
+                echo ""
+                echo "$FIXES"
+              echo ""
+              fi
+
+              # Documentation
+              DOCS=$(git log "$PREV_TAG..$TAG" --pretty=format:"- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))" --grep="^docs" 2>/dev/null)
+              if [ -n "$DOCS" ]; then
+              echo "#### 📝 Documentation"
+                echo ""
+                echo "$DOCS"
+              echo ""
+              fi
+
+              # Chores & Other Changes
+              CHORES=$(git log "$PREV_TAG..$TAG" --pretty=format:"- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))" --grep="^chore\|^refactor\|^style\|^test\|^perf" 2>/dev/null)
+              if [ -n "$CHORES" ]; then
+              echo "#### 🔧 Chores & Other Changes"
+              echo ""
+                echo "$CHORES"
+                echo ""
+              fi
+
+              # All Commits
+              echo "#### 📦 All Commits"
+              echo ""
+              git log "$PREV_TAG..$TAG" --pretty=format:"- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))"
+            } > CHANGELOG.md
+          fi
+
+          echo "---- CHANGELOG.md ----"
+          cat CHANGELOG.md
+          echo "----------------------"
+
+          # ✅ Export multi-line changelog output using official delimiter syntax
+          {
+            echo 'changelog<<EOF'
+            cat CHANGELOG.md
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.new_version.outputs.tag }}
+          name: Release ${{ steps.new_version.outputs.version }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: ${{ inputs.prerelease }}
+
+      - name: Summary
+        run: |
+          echo "## ✅ Release Created Successfully!" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Version**: ${{ steps.new_version.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Tag**: ${{ steps.new_version.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Pre-release**: ${{ inputs.prerelease }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Build artifacts**: ${{ inputs.include_build_artifacts }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "🔗 [View Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.new_version.outputs.tag }})" >> "$GITHUB_STEP_SUMMARY"
