@@ -1,0 +1,187 @@
+---
+name: 🔗 Check Dead Links
+
+"on":
+  schedule:
+    # Run every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      create_issue:
+        description: 'Create issue for dead links'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-links:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🚚 Checkout repository
+        uses: actions/checkout@v6
+
+      - name: 🔍 Check links in documentation
+        uses: lycheeverse/lychee-action@v2.7.0
+        with:
+          # Check documentation and configuration files
+          args: >-
+            --verbose
+            --no-progress
+            --accept 200,201,202,203,204,300,301,302,303,304,307,308,429
+            --timeout 10
+            --retry-wait-time 2
+            --exclude-private
+            --exclude-link-local
+            --user-agent "Mozilla/5.0 (compatible; converter-link-checker/1.0)"
+            --cache
+            --max-cache-age 86400sec
+            README.md
+            CONTRIBUTING.md
+            ROADMAP.md
+            SECURITY.md
+            PWA_VISUAL_GUIDE.md
+            docs/API.md
+            docs/COMPONENTS.md
+            docs/CONVERTER.md
+            docs/DESIGN_SYSTEM.md
+            docs/DEVELOPMENT.md
+            docs/FIREBASE_AUTH_SETUP.md
+            docs/PWA.md
+            docs/README.md
+            docs/SERVICES.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📊 Process results and create detailed report
+        if: always()
+        run: |
+          echo "## 🔗 Dead Link Check Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f lychee/out.md ]; then
+            echo "### Detailed Results:" >> $GITHUB_STEP_SUMMARY
+            cat lychee/out.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ All links are working correctly!" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Checked files:**" >> $GITHUB_STEP_SUMMARY
+          echo "- README.md (main documentation)" >> $GITHUB_STEP_SUMMARY
+          echo "- CONTRIBUTING.md (contribution guidelines)" >> $GITHUB_STEP_SUMMARY
+          echo "- ROADMAP.md (project roadmap)" >> $GITHUB_STEP_SUMMARY
+          echo "- SECURITY.md (security policies)" >> $GITHUB_STEP_SUMMARY
+          echo "- PWA_VISUAL_GUIDE.md (PWA visual guide)" >> $GITHUB_STEP_SUMMARY
+          echo "- docs/API.md (API documentation)" >> $GITHUB_STEP_SUMMARY
+          echo "- docs/COMPONENTS.md (component documentation)" >> $GITHUB_STEP_SUMMARY
+          echo "- docs/CONVERTER.md (converter documentation)" >> $GITHUB_STEP_SUMMARY
+          echo "- docs/DESIGN_SYSTEM.md (design system documentation)" >> $GITHUB_STEP_SUMMARY
+          echo "- docs/DEVELOPMENT.md (development documentation)" >> $GITHUB_STEP_SUMMARY
+          echo "- docs/FIREBASE_AUTH_SETUP.md (Firebase auth setup)" >> $GITHUB_STEP_SUMMARY
+          echo "- docs/PWA.md (PWA documentation)" >> $GITHUB_STEP_SUMMARY
+          echo "- docs/README.md (documentation index)" >> $GITHUB_STEP_SUMMARY
+          echo "- docs/SERVICES.md (services documentation)" >> $GITHUB_STEP_SUMMARY
+
+      - name: 🐛 Create issue for dead links
+        if: >-
+          failure() && (github.event.inputs.create_issue == 'true' ||
+          github.event_name == 'schedule')
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            let reportContent = "No detailed report available.";
+
+            if (fs.existsSync('lychee/out.md')) {
+              reportContent = fs.readFileSync('lychee/out.md', 'utf8');
+            }
+
+            const issueTitle = `🔗 Dead Links - ${new Date().toISOString().split('T')[0]}`;
+            const issueBody = `## Dead Links Found
+
+            The automated link checker has detected one or more dead
+            links in the website.
+
+            ### Report Details
+
+            ${reportContent}
+
+            ### Recommended Actions
+
+            1. **Review each failed link** and determine if it should be
+               updated or removed
+            2. **Update documentation files** with current links
+            3. **Check for alternative URLs** for resources that may
+               have moved
+            4. **Consider removing outdated links** if no alternative exists
+
+            ### Files to Check
+
+            - \`README.md\` - Main documentation
+            - \`CONTRIBUTING.md\` - Contribution guidelines
+            - \`ROADMAP.md\` - Project roadmap
+            - \`SECURITY.md\` - Security policies
+            - \`PWA_VISUAL_GUIDE.md\` - PWA visual guide
+            - \`docs/API.md\` - API documentation
+            - \`docs/COMPONENTS.md\` - Component documentation
+            - \`docs/CONVERTER.md\` - Converter documentation
+            - \`docs/DESIGN_SYSTEM.md\` - Design system documentation
+            - \`docs/DEVELOPMENT.md\` - Development documentation
+            - \`docs/FIREBASE_AUTH_SETUP.md\` - Firebase auth setup
+            - \`docs/PWA.md\` - PWA documentation
+            - \`docs/README.md\` - Documentation index
+            - \`docs/SERVICES.md\` - Services documentation
+
+            **Note:** This issue was automatically created by the dead link
+            checker workflow.
+
+            ---
+
+            /label ~bug ~automated`;
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'automated',
+              state: 'open'
+            });
+
+            const existingIssue = issues.find(issue =>
+              issue.title.includes('Dead Links Detected') &&
+              issue.labels.some(label => label.name === 'automated')
+            );
+
+            if (existingIssue) {
+              // Update existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `## 📅 Updated Report - ${new Date().toISOString().split('T')[0]}
+
+                ${reportContent}
+
+                *This comment was automatically generated by the dead link checker.*`
+              });
+
+              console.log(`Updated existing issue #${existingIssue.number}`);
+            } else {
+              // Create new issue
+              const newIssue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: issueTitle,
+                body: issueBody,
+                labels: ['bug', 'automated']
+              });
+
+              console.log(`Created new issue #${newIssue.data.number}`);
+            }
