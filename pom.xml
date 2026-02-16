@@ -47,7 +47,7 @@
     <surefire-plugin.version>3.0.0</surefire-plugin.version>
     <quarkus-google-cloud-firestore.version>2.20.1</quarkus-google-cloud-firestore.version>
     <dotenv-java.version>3.0.0</dotenv-java.version>
-    <lombok.version>1.18.30</lombok.version>
+    <lombok.version>1.18.42</lombok.version>
   </properties>
   <dependencyManagement>
     <dependencies>
