@@ -35,22 +35,22 @@ A production-ready REST API built with Quarkus and Java 17, designed for Google 
 
 The application follows a **feature-based architecture** where code is organized by domain/feature rather than by technical layer. This promotes better modularity, maintainability, and domain-driven design:
 
-- **Converter Feature** (`com.threedime.api.feature.converter`) - Image-to-calendar conversion
+- **Converter Feature** (`com.dime.api.feature.converter`) - Image-to-calendar conversion
   - Resources, services, clients, and models for AI-powered image conversion
   - Includes quota management and tracking services
   
-- **GitHub Feature** (`com.threedime.api.feature.github`) - GitHub integration
+- **GitHub Feature** (`com.dime.api.feature.github`) - GitHub integration
   - Resources, services, clients, and models for GitHub API operations
   - User profiles, social accounts, and commit statistics
   
-- **Notion Feature** (`com.threedime.api.feature.notion`) - Notion CMS
+- **Notion Feature** (`com.dime.api.feature.notion`) - Notion CMS
   - Resources, services, and clients for Notion database integration
   - CMS content management
   
-- **Statistics Feature** (`com.threedime.api.feature.statistics`) - Analytics
+- **Statistics Feature** (`com.dime.api.feature.statistics`) - Analytics
   - Resources for usage statistics and analytics
   
-- **Shared Components** (`com.threedime.api.feature.shared`) - Cross-cutting concerns
+- **Shared Components** (`com.dime.api.feature.shared`) - Cross-cutting concerns
   - Configuration, health checks, and common utilities
 
 ## ⚙️ Configuration
@@ -281,14 +281,14 @@ The buildpack automatically:
 3dime-api/
 ├── src/
 │   ├── main/
-│   │   ├── java/com/threedime/api/
+│   │   ├── java/com/dime/api/
 │   │   │   ├── feature/
 │   │   │   │   ├── converter/    # Image-to-calendar conversion feature
 │   │   │   │   ├── github/       # GitHub integration feature
 │   │   │   │   ├── notion/       # Notion CMS feature
 │   │   │   │   ├── statistics/   # Analytics feature
 │   │   │   │   └── shared/       # Shared components (config, health)
-│   │   │   └── ThreeDimeApplication.java
+│   │   │   └── DimeApplication.java
 │   │   └── resources/
 │   │       └── application.properties
 │   └── test/                     # Unit and integration tests
