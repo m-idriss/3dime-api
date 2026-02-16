@@ -1,0 +1,17 @@
+name: Quick Feature Request
+description: Minimal feature request template
+title: "[Feature Request]"
+labels: []
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: "Description"
+      description: "Briefly describe the feature you would like to request."
+      placeholder: "Describe the feature here..."
+  - type: textarea
+    id: benefits
+    attributes:
+      label: "Benefits"
+      description: "Explain the benefits of this feature."
+      placeholder: "Describe the benefits here..."
