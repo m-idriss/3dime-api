@@ -1,5 +1,7 @@
 package com.dime.api.feature.converter;
 
+import com.dime.api.feature.shared.exception.ExternalServiceException;
+import com.dime.api.feature.shared.exception.ProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -39,7 +41,14 @@ public class GeminiService {
     String systemPrompt;
 
     public String generateIcs(ConverterRequest request) throws IOException {
-        String token = getAccessToken();
+        String token;
+        try {
+            token = getAccessToken();
+        } catch (IOException e) {
+            log.error("Failed to get Google access token", e);
+            throw new ExternalServiceException("Google Cloud", 
+                "Failed to authenticate with Google Cloud for Gemini API access", e);
+        }
 
         String today = request.currentDate != null ? request.currentDate : java.time.LocalDate.now().toString();
         String tz = request.timeZone != null ? request.timeZone : "UTC";
@@ -78,10 +87,34 @@ public class GeminiService {
         generationConfig.put("maxOutputTokens", 8192);
 
         log.info("Calling Gemini API with model {}", modelName);
-        JsonNode response = geminiClient.generateContent("Bearer " + token, modelName, requestBody);
+        
+        JsonNode response;
+        try {
+            response = geminiClient.generateContent("Bearer " + token, modelName, requestBody);
+        } catch (Exception e) {
+            log.error("Failed to call Gemini API", e);
+            throw new ExternalServiceException("Gemini", 
+                "Failed to generate content using Gemini API: " + e.getMessage(), e);
+        }
+
+        if (response.has("error")) {
+            String error = response.get("error").toString();
+            log.error("Gemini API returned error: {}", error);
+            throw new ExternalServiceException("Gemini", "Gemini API error: " + error);
+        }
 
         if (response.has("candidates") && response.get("candidates").size() > 0) {
             JsonNode candidate = response.get("candidates").get(0);
+            
+            // Check if candidate was blocked
+            if (candidate.has("finishReason") && 
+                !"STOP".equals(candidate.get("finishReason").asText())) {
+                String finishReason = candidate.get("finishReason").asText();
+                log.warn("Gemini response was blocked or incomplete: {}", finishReason);
+                throw new ProcessingException("Content generation was blocked or incomplete. " +
+                    "Please try with different images. Reason: " + finishReason);
+            }
+            
             if (candidate.has("content") && candidate.get("content").has("parts")) {
                 String text = candidate.get("content").get("parts").get(0).get("text").asText();
                 return cleanIcs(text);
@@ -89,7 +122,7 @@ public class GeminiService {
         }
 
         log.error("Gemini response did not contain expected content: {}", response.toString());
-        throw new IOException("Failed to generate ICS content from Gemini response");
+        throw new ProcessingException("Gemini API returned unexpected response format");
     }
 
     private String getAccessToken() throws IOException {

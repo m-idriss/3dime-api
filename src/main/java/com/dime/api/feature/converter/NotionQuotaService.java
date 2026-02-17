@@ -159,7 +159,7 @@ public class NotionQuotaService {
             return new QuotaData(
                     usageCount,
                     Instant.parse(lastResetStr),
-                    PlanType.valueOf(planName));
+                    PlanType.fromString(planName));
         } catch (Exception e) {
             log.warn("Failed to read from Notion for user {}", userId, e);
             return null;
