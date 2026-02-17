@@ -9,8 +9,7 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -19,10 +18,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+@Slf4j
 @ApplicationScoped
 public class GitHubService {
-
-  private static final Logger LOG = LoggerFactory.getLogger(GitHubService.class);
 
   @Inject
   @RestClient
@@ -38,19 +36,19 @@ public class GitHubService {
   ObjectMapper objectMapper;
 
   public GitHubUser getUserInfo() {
-    LOG.info("Fetching GitHub user info for: {}", username);
+    log.info("Fetching GitHub user info for: {}", username);
 
     try {
       GitHubUser user = gitHubClient.getUser(username);
-      LOG.info("Successfully fetched user info for: {}", username);
+      log.info("Successfully fetched user info for: {}", username);
       return user;
     } catch (WebApplicationException e) {
-      LOG.error("Failed to fetch GitHub user info for: {}", username, e);
+      log.error("Failed to fetch GitHub user info for: {}", username, e);
       // Return 502 Bad Gateway for all external API failures
       throw new WebApplicationException("Failed to fetch user from GitHub API",
           Response.Status.BAD_GATEWAY);
     } catch (Exception e) {
-      LOG.error("Unexpected error fetching GitHub user info for: {}", username, e);
+      log.error("Unexpected error fetching GitHub user info for: {}", username, e);
       throw new WebApplicationException("Unexpected error calling GitHub API",
           Response.Status.BAD_GATEWAY);
     }
@@ -83,7 +81,7 @@ public class GitHubService {
 
     // We need a token for GraphQL
     if (token.isEmpty() || token.get().trim().isEmpty()) {
-      LOG.warn("GitHub token not configured. Skipping commit statistics fetch.");
+      log.warn("GitHub token not configured. Skipping commit statistics fetch.");
       return new ArrayList<>();
     }
 

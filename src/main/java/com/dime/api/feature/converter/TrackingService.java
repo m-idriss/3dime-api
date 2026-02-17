@@ -9,16 +9,15 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.Instant;
 import java.util.Optional;
 
+@Slf4j
 @ApplicationScoped
 public class TrackingService {
 
-    private static final Logger LOG = LoggerFactory.getLogger(TrackingService.class);
     private static final int MAX_ERROR_MESSAGE_LENGTH = 2000;
 
     @Inject
@@ -57,7 +56,7 @@ public class TrackingService {
     private void logEvent(String action, String userId, String status, int fileCount, int eventCount, long duration,
             String errorMessage, String domain) {
         if (!isEnabled()) {
-            LOG.debug("Tracking disabled: Notion token or DB ID missing");
+            log.debug("Tracking disabled: Notion token or DB ID missing");
             return;
         }
 
@@ -90,10 +89,10 @@ public class TrackingService {
             page.set("properties", properties);
 
             notionClient.createPage("Bearer " + notionToken.get(), notionVersion, page);
-            LOG.info("Logged usage event: {} for user {}", action, userId);
+            log.info("Logged usage event: {} for user {}", action, userId);
 
         } catch (Exception e) {
-            LOG.error("Failed to log usage event to Notion: {}", e.getMessage(), e);
+            log.error("Failed to log usage event to Notion: {}", e.getMessage(), e);
         }
     }
 
@@ -137,7 +136,7 @@ public class TrackingService {
             return new Statistics(totalFileCount, totalEventCount);
 
         } catch (Exception e) {
-            LOG.error("Failed to fetch statistics from Notion", e);
+            log.error("Failed to fetch statistics from Notion", e);
             return new Statistics(0, 0);
         }
     }

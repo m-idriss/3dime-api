@@ -9,8 +9,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -20,10 +19,9 @@ import java.util.Optional;
  * This service syncs Firestore quota data to Notion for business reporting/CRM.
  * It NEVER blocks API responses and NEVER affects request authorization.
  */
+@Slf4j
 @ApplicationScoped
 public class NotionQuotaService {
-
-    private static final Logger LOG = LoggerFactory.getLogger(NotionQuotaService.class);
 
     @Inject
     @RestClient
@@ -66,7 +64,7 @@ public class NotionQuotaService {
             }
             return null;
         } catch (Exception e) {
-            LOG.warn("Failed to get Notion page ID for user {} (non-blocking)", userId, e);
+            log.warn("Failed to get Notion page ID for user {} (non-blocking)", userId, e);
             return null;
         }
     }
@@ -106,7 +104,7 @@ public class NotionQuotaService {
                 updatePayload.set("properties", properties);
 
                 notionClient.updatePage(authToken, version, pageId, updatePayload);
-                LOG.info("Synced quota to Notion (updated) for user {}", userId);
+                log.info("Synced quota to Notion (updated) for user {}", userId);
             } else {
                 // Create new page
                 ObjectNode createPayload = objectMapper.createObjectNode();
@@ -114,11 +112,11 @@ public class NotionQuotaService {
                 createPayload.set("properties", properties);
 
                 notionClient.createPage(authToken, version, createPayload);
-                LOG.info("Synced quota to Notion (created) for user {}", userId);
+                log.info("Synced quota to Notion (created) for user {}", userId);
             }
         } catch (Exception e) {
             // Only log error - NEVER throw or block
-            LOG.warn("Failed to sync to Notion for user {} (non-blocking)", userId, e);
+            log.warn("Failed to sync to Notion for user {} (non-blocking)", userId, e);
         }
     }
 
@@ -163,7 +161,7 @@ public class NotionQuotaService {
                     Instant.parse(lastResetStr),
                     PlanType.valueOf(planName));
         } catch (Exception e) {
-            LOG.warn("Failed to read from Notion for user {}", userId, e);
+            log.warn("Failed to read from Notion for user {}", userId, e);
             return null;
         }
     }
