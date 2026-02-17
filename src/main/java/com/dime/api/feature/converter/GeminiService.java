@@ -7,14 +7,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.auth.oauth2.ServiceAccountCredentials;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -39,6 +42,9 @@ public class GeminiService {
 
     @ConfigProperty(name = "gemini.system-prompt")
     String systemPrompt;
+
+    @ConfigProperty(name = "gemini.api.key")
+    Optional<String> apiKeyJson;
 
     public String generateIcs(ConverterRequest request) throws IOException {
         String token;
@@ -126,8 +132,21 @@ public class GeminiService {
     }
 
     private String getAccessToken() throws IOException {
-        GoogleCredentials credentials = GoogleCredentials.getApplicationDefault()
-                .createScoped(Collections.singleton("https://www.googleapis.com/auth/generative-language"));
+        GoogleCredentials credentials;
+        
+        if (apiKeyJson.isPresent() && !apiKeyJson.get().trim().isEmpty()) {
+            // Use the configured service account JSON
+            log.debug("Using configured service account credentials");
+            ByteArrayInputStream credentialsStream = new ByteArrayInputStream(apiKeyJson.get().getBytes());
+            credentials = ServiceAccountCredentials.fromStream(credentialsStream)
+                    .createScoped(Collections.singleton("https://www.googleapis.com/auth/generative-language"));
+        } else {
+            // Fallback to application default credentials
+            log.debug("Using application default credentials");
+            credentials = GoogleCredentials.getApplicationDefault()
+                    .createScoped(Collections.singleton("https://www.googleapis.com/auth/generative-language"));
+        }
+        
         credentials.refreshIfExpired();
         return credentials.getAccessToken().getTokenValue();
     }
