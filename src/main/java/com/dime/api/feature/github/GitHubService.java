@@ -9,7 +9,8 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.jboss.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -21,7 +22,7 @@ import java.util.Optional;
 @ApplicationScoped
 public class GitHubService {
 
-  private static final Logger LOG = Logger.getLogger(GitHubService.class);
+  private static final Logger LOG = LoggerFactory.getLogger(GitHubService.class);
 
   @Inject
   @RestClient
@@ -37,19 +38,19 @@ public class GitHubService {
   ObjectMapper objectMapper;
 
   public GitHubUser getUserInfo() {
-    LOG.infof("Fetching GitHub user info for: %s", username);
+    LOG.info("Fetching GitHub user info for: {}", username);
 
     try {
       GitHubUser user = gitHubClient.getUser(username);
-      LOG.infof("Successfully fetched user info for: %s", username);
+      LOG.info("Successfully fetched user info for: {}", username);
       return user;
     } catch (WebApplicationException e) {
-      LOG.errorf(e, "Failed to fetch GitHub user info for: %s", username);
+      LOG.error("Failed to fetch GitHub user info for: {}", username, e);
       // Return 502 Bad Gateway for all external API failures
       throw new WebApplicationException("Failed to fetch user from GitHub API",
           Response.Status.BAD_GATEWAY);
     } catch (Exception e) {
-      LOG.errorf(e, "Unexpected error fetching GitHub user info for: %s", username);
+      LOG.error("Unexpected error fetching GitHub user info for: {}", username, e);
       throw new WebApplicationException("Unexpected error calling GitHub API",
           Response.Status.BAD_GATEWAY);
     }

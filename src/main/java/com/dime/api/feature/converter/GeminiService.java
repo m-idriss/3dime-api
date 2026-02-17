@@ -9,7 +9,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
-import org.jboss.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -19,7 +20,7 @@ import java.util.regex.Pattern;
 @ApplicationScoped
 public class GeminiService {
 
-    private static final Logger LOG = Logger.getLogger(GeminiService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(GeminiService.class);
     private static final Pattern BASE64_PATTERN = Pattern.compile("^data:(.+?);base64,(.+)$");
 
     @Inject
@@ -77,7 +78,7 @@ public class GeminiService {
         generationConfig.put("temperature", 0.1);
         generationConfig.put("maxOutputTokens", 8192);
 
-        LOG.infof("Calling Gemini API with model %s", modelName);
+        LOG.info("Calling Gemini API with model {}", modelName);
         JsonNode response = geminiClient.generateContent("Bearer " + token, modelName, requestBody);
 
         if (response.has("candidates") && response.get("candidates").size() > 0) {
@@ -88,7 +89,7 @@ public class GeminiService {
             }
         }
 
-        LOG.errorf("Gemini response did not contain expected content: %s", response.toString());
+        LOG.error("Gemini response did not contain expected content: {}", response.toString());
         throw new IOException("Failed to generate ICS content from Gemini response");
     }
 

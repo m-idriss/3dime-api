@@ -9,14 +9,15 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import org.jboss.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
 @Path("/converter")
 public class ConverterResource {
 
-    private static final Logger LOG = Logger.getLogger(ConverterResource.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ConverterResource.class);
 
     @Inject
     QuotaService quotaService;
@@ -85,7 +86,7 @@ public class ConverterResource {
             return Response.ok(new ConverterResponse(true, icsContent)).build();
 
         } catch (IOException e) {
-            LOG.errorf(e, "Error processing conversion request for user %s", userId);
+            LOG.error("Error processing conversion request for user {}", userId, e);
             trackingService.logConversionError(userId, fileCount, e.getMessage(),
                     System.currentTimeMillis() - startTime, domain);
             return Response.serverError()

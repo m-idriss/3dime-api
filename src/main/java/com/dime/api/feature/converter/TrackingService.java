@@ -9,7 +9,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
-import org.jboss.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -17,7 +18,7 @@ import java.util.Optional;
 @ApplicationScoped
 public class TrackingService {
 
-    private static final Logger LOG = Logger.getLogger(TrackingService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(TrackingService.class);
     private static final int MAX_ERROR_MESSAGE_LENGTH = 2000;
 
     @Inject
@@ -89,10 +90,10 @@ public class TrackingService {
             page.set("properties", properties);
 
             notionClient.createPage("Bearer " + notionToken.get(), notionVersion, page);
-            LOG.infof("Logged usage event: %s for user %s", action, userId);
+            LOG.info("Logged usage event: {} for user {}", action, userId);
 
         } catch (Exception e) {
-            LOG.errorf(e, "Failed to log usage event to Notion: %s", e.getMessage());
+            LOG.error("Failed to log usage event to Notion: {}", e.getMessage(), e);
         }
     }
 

@@ -4,7 +4,8 @@ import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.*;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.jboss.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -15,7 +16,7 @@ import java.util.concurrent.ExecutionException;
 @ApplicationScoped
 public class QuotaService {
 
-    private static final Logger LOG = Logger.getLogger(QuotaService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(QuotaService.class);
     private static final String COLLECTION_NAME = "users";
     private static final PlanType DEFAULT_PLAN = PlanType.FREE;
     private static final Map<PlanType, Long> QUOTA_LIMITS = Map.of(
@@ -60,7 +61,7 @@ public class QuotaService {
             return new QuotaCheckResult(allowed, remaining, limit, userQuota.plan);
 
         } catch (InterruptedException | ExecutionException e) {
-            LOG.errorf(e, "Error checking quota for user %s", userId);
+            LOG.error("Error checking quota for user {}", userId, e);
             // Default allow on error to not block users
             return new QuotaCheckResult(true, -1, -1, DEFAULT_PLAN);
         }
@@ -82,7 +83,7 @@ public class QuotaService {
                 return null;
             }).get();
 
-            LOG.infof("Incremented usage for user %s", userId);
+            LOG.info("Incremented usage for user {}", userId);
 
             // Async sync to Notion (non-blocking)
             try {
@@ -98,11 +99,11 @@ public class QuotaService {
                     }
                 }
             } catch (Exception e) {
-                LOG.warnf(e, "Failed to sync to Notion for user %s (non-blocking)", userId);
+                LOG.warn("Failed to sync to Notion for user {} (non-blocking)", userId, e);
             }
 
         } catch (InterruptedException | ExecutionException e) {
-            LOG.errorf(e, "Error incrementing usage for user %s", userId);
+            LOG.error("Error incrementing usage for user {}", userId, e);
         }
     }
 
@@ -117,7 +118,7 @@ public class QuotaService {
                 return userQuota;
             }
         } catch (Exception e) {
-            LOG.errorf(e, "Error fetching quota status for %s", userId);
+            LOG.error("Error fetching quota status for {}", userId, e);
         }
         return null;
     }
@@ -132,7 +133,7 @@ public class QuotaService {
                 now,
                 now);
         firestore.collection(COLLECTION_NAME).document(userId).set(newUser).get();
-        LOG.infof("Created new user %s", userId);
+        LOG.info("Created new user {}", userId);
         return newUser;
     }
 
@@ -154,7 +155,7 @@ public class QuotaService {
                 "quotaUsed", 0,
                 "periodStart", now,
                 "updatedAt", now);
-        LOG.infof("Reset quota for user %s", userId);
+        LOG.info("Reset quota for user {}", userId);
     }
 
     private boolean isNewMonth(Timestamp periodStart) {

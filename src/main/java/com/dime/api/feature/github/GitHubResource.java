@@ -12,13 +12,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.ws.rs.QueryParam;
 import java.util.List;
 import java.util.Map;
-import org.jboss.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Path("/github")
 @Tag(name = "GitHub", description = "GitHub API operations")
 public class GitHubResource {
 
-    private static final Logger LOG = Logger.getLogger(GitHubResource.class);
+    private static final Logger LOG = LoggerFactory.getLogger(GitHubResource.class);
 
     @Inject
     GitHubService gitHubService;

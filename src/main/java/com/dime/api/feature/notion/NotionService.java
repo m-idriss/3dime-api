@@ -8,7 +8,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
-import org.jboss.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,7 +19,7 @@ import java.util.Map;
 @ApplicationScoped
 public class NotionService {
 
-    private static final Logger LOG = Logger.getLogger(NotionService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(NotionService.class);
 
     @Inject
     @RestClient
@@ -42,7 +43,7 @@ public class NotionService {
             return new HashMap<>();
         }
 
-        LOG.infof("Fetching CMS content from Notion database: %s", databaseId);
+        LOG.info("Fetching CMS content from Notion database: {}", databaseId);
 
         try {
             // Build query payload
@@ -85,7 +86,7 @@ public class NotionService {
 
         } catch (org.jboss.resteasy.reactive.ClientWebApplicationException e) {
             String errorBody = e.getResponse().readEntity(String.class);
-            LOG.errorf(e, "Notion API error: %s", errorBody);
+            LOG.error("Notion API error: {}", errorBody, e);
             throw new RuntimeException("Notion API error: " + errorBody, e);
         } catch (Exception e) {
             LOG.error("Failed to fetch CMS content from Notion", e);
