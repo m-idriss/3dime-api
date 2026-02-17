@@ -6,10 +6,7 @@ import com.dime.api.feature.shared.exception.ValidationException;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
@@ -41,9 +38,9 @@ public class ConverterResource {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    @Operation(summary = "Convert images to calendar events", 
+    @Operation(summary = "Convert images to calendar events",
                description = "Uses AI to extract calendar events from images and convert them to ICS format")
-    @APIResponse(responseCode = "200", description = "Conversion successful", 
+    @APIResponse(responseCode = "200", description = "Conversion successful",
                 content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ConverterResponse.class)))
     @APIResponse(responseCode = "400", description = "Invalid request data")
     @APIResponse(responseCode = "422", description = "Processing error - valid input but conversion failed")
@@ -62,7 +59,7 @@ public class ConverterResource {
 
         // Check for valid file data
         boolean hasValidFile = request.files.stream()
-            .anyMatch(file -> (file.dataUrl != null && !file.dataUrl.trim().isEmpty()) || 
+            .anyMatch(file -> (file.dataUrl != null && !file.dataUrl.trim().isEmpty()) ||
                              (file.url != null && !file.url.trim().isEmpty()));
         if (!hasValidFile) {
             throw new ValidationException("All provided files are empty. Please provide valid image data.");
@@ -73,7 +70,7 @@ public class ConverterResource {
         if (!quota.allowed()) {
             trackingService.logQuotaExceeded(userId, (int) (quota.limit() - quota.remaining()), (int) quota.limit(),
                     quota.plan().toString(), domain);
-            
+
             throw new QuotaException("You've reached your monthly conversion limit. Limit: " + quota.limit(),
                     Map.of("limit", quota.limit(), "remaining", quota.remaining(), "plan", quota.plan()));
         }
@@ -110,6 +107,36 @@ public class ConverterResource {
             trackingService.logConversionError(userId, fileCount, e.getMessage(),
                     System.currentTimeMillis() - startTime, domain);
             throw new ProcessingException("Failed to process images for conversion: " + e.getMessage(), e);
+        }
+    }
+
+    @GET
+    @Path("/quotaStatus")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Operation(summary = "Get user quota status",
+               description = "Retrieves the current quota usage and plan information for a user")
+    @APIResponse(responseCode = "200", description = "Quota status retrieved successfully",
+                content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = UserQuota.class)))
+    @APIResponse(responseCode = "404", description = "User not found")
+    @APIResponse(responseCode = "500", description = "Internal server error")
+    public Response getQuotaStatus(@QueryParam("userId") @NotNull String userId) {
+        log.info("GET /converter/quotaStatus endpoint called for user: {}", userId);
+        
+        try {
+            UserQuota userQuota = quotaService.getQuotaStatus(userId);
+            
+            if (userQuota == null) {
+                return Response.status(Response.Status.NOT_FOUND)
+                        .entity(Map.of("error", "User not found", "userId", userId))
+                        .build();
+            }
+            
+            return Response.ok(userQuota).build();
+        } catch (Exception e) {
+            log.error("Error retrieving quota status for user {}: {}", userId, e.getMessage(), e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(Map.of("error", "Internal server error"))
+                    .build();
         }
     }
 
