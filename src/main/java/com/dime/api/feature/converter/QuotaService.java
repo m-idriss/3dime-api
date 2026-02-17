@@ -53,7 +53,7 @@ public class QuotaService {
                 resetQuota(userId, userQuota.getPlanType());
                 userQuota.quotaUsed = 0;
                 // Update the quota limit in memory since it was just reset in the database
-                userQuota.quotaLimit = QUOTA_LIMITS.getOrDefault(userQuota.getPlanType(), DEFAULT_QUOTA_LIMIT);
+                userQuota.quotaLimit = getQuotaLimitForPlan(userQuota.getPlanType());
             }
 
             long limit = userQuota.quotaLimit;
@@ -153,7 +153,7 @@ public class QuotaService {
 
     private void resetQuota(String userId, PlanType plan) {
         Timestamp now = Timestamp.now();
-        long newLimit = QUOTA_LIMITS.getOrDefault(plan, DEFAULT_QUOTA_LIMIT);
+        long newLimit = getQuotaLimitForPlan(plan);
         firestore.collection(COLLECTION_NAME).document(userId).update(
                 "quotaUsed", 0,
                 "quotaLimit", newLimit,
@@ -170,5 +170,9 @@ public class QuotaService {
         ZonedDateTime now = Instant.now().atZone(ZoneId.of("UTC"));
 
         return periodDate.getMonth() != now.getMonth() || periodDate.getYear() != now.getYear();
+    }
+
+    private long getQuotaLimitForPlan(PlanType plan) {
+        return QUOTA_LIMITS.getOrDefault(plan, DEFAULT_QUOTA_LIMIT);
     }
 }
