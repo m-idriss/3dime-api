@@ -20,7 +20,7 @@ public class QuotaService {
     private static final PlanType DEFAULT_PLAN = PlanType.FREE;
     private static final long DEFAULT_QUOTA_LIMIT = 10L;
     private static final Map<PlanType, Long> QUOTA_LIMITS = Map.of(
-            PlanType.FREE, 10L,
+            PlanType.FREE, DEFAULT_QUOTA_LIMIT,
             PlanType.PRO, 100L,
             PlanType.UNLIMITED, 1000000L);
 
@@ -52,7 +52,7 @@ public class QuotaService {
             if (isNewMonth(userQuota.periodStart)) {
                 resetQuota(userId, userQuota.getPlanType());
                 userQuota.quotaUsed = 0;
-                // Update the quota limit in memory to match what was set in the database
+                // Update the quota limit in memory since it was just reset in the database
                 userQuota.quotaLimit = QUOTA_LIMITS.getOrDefault(userQuota.getPlanType(), DEFAULT_QUOTA_LIMIT);
             }
 
