@@ -47,6 +47,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
       - name: Determine current version
         id: current_version
         run: |
@@ -117,21 +124,30 @@ jobs:
           fi
           echo "Tag $TAG does not exist, proceeding..."
 
-      - name: Update package.json version
+      - name: Update pom.xml version
         run: |
           NEW_VERSION="${{ steps.new_version.outputs.version }}"
-          yarn version --new-version "$NEW_VERSION" --no-git-tag-version
-          echo "Updated package.json to version $NEW_VERSION"
+          mvn versions:set -DnewVersion="$NEW_VERSION" -DgenerateBackupPoms=false
+          echo "Updated pom.xml to version $NEW_VERSION"
+          
+          # Verify the version was updated correctly
+          ACTUAL_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          if [ "$ACTUAL_VERSION" != "$NEW_VERSION" ]; then
+            echo "Error: Version mismatch. Expected $NEW_VERSION but got $ACTUAL_VERSION"
+            exit 1
+          fi
+          echo "Version verified: $ACTUAL_VERSION"
 
       - name: Commit version bump
         run: |
           NEW_VERSION="${{ steps.new_version.outputs.version }}"
-          git add package.json yarn.lock
+          git add pom.xml
           git commit -m "chore: bump version to $NEW_VERSION" || echo "No changes to commit"
 
       - name: Build project (if requested)
         if: inputs.include_build_artifacts == true
-        run: yarn build --configuration=production
+        # Skip tests during artifact build for performance. Tests should be run in CI before release.
+        run: mvn clean package -DskipTests
 
       - name: Create Git tag
         run: |
