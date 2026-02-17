@@ -18,6 +18,7 @@ public class QuotaService {
 
     private static final String COLLECTION_NAME = "users";
     private static final PlanType DEFAULT_PLAN = PlanType.FREE;
+    private static final long DEFAULT_QUOTA_LIMIT = 10L;
     private static final Map<PlanType, Long> QUOTA_LIMITS = Map.of(
             PlanType.FREE, 10L,
             PlanType.PRO, 100L,
@@ -53,7 +54,7 @@ public class QuotaService {
                 userQuota.quotaUsed = 0;
             }
 
-            long limit = QUOTA_LIMITS.getOrDefault(userQuota.getPlanType(), 10L);
+            long limit = QUOTA_LIMITS.getOrDefault(userQuota.getPlanType(), DEFAULT_QUOTA_LIMIT);
             long remaining = Math.max(0, limit - userQuota.quotaUsed);
             boolean allowed = userQuota.quotaUsed < limit;
 
@@ -150,7 +151,7 @@ public class QuotaService {
 
     private void resetQuota(String userId, PlanType plan) {
         Timestamp now = Timestamp.now();
-        long newLimit = QUOTA_LIMITS.getOrDefault(plan, 10L);
+        long newLimit = QUOTA_LIMITS.getOrDefault(plan, DEFAULT_QUOTA_LIMIT);
         firestore.collection(COLLECTION_NAME).document(userId).update(
                 "quotaUsed", 0,
                 "quotaLimit", newLimit,
