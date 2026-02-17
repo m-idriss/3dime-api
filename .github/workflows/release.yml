@@ -129,6 +129,14 @@ jobs:
           NEW_VERSION="${{ steps.new_version.outputs.version }}"
           mvn versions:set -DnewVersion="$NEW_VERSION" -DgenerateBackupPoms=false
           echo "Updated pom.xml to version $NEW_VERSION"
+          
+          # Verify the version was updated correctly
+          ACTUAL_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          if [ "$ACTUAL_VERSION" != "$NEW_VERSION" ]; then
+            echo "Error: Version mismatch. Expected $NEW_VERSION but got $ACTUAL_VERSION"
+            exit 1
+          fi
+          echo "Version verified: $ACTUAL_VERSION"
 
       - name: Commit version bump
         run: |
@@ -138,6 +146,7 @@ jobs:
 
       - name: Build project (if requested)
         if: inputs.include_build_artifacts == true
+        # Skip tests during artifact build for performance. Tests should be run in CI before release.
         run: mvn clean package -DskipTests
 
       - name: Create Git tag
