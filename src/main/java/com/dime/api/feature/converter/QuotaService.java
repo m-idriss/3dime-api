@@ -150,7 +150,7 @@ public class QuotaService {
 
     private void resetQuota(String userId, PlanType plan) {
         Timestamp now = Timestamp.now();
-        long newLimit = QUOTA_LIMITS.getOrDefault(plan, QUOTA_LIMITS.get(DEFAULT_PLAN));
+        long newLimit = QUOTA_LIMITS.getOrDefault(plan, 10L);
         firestore.collection(COLLECTION_NAME).document(userId).update(
                 "quotaUsed", 0,
                 "quotaLimit", newLimit,
