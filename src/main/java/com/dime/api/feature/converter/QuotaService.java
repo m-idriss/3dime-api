@@ -151,14 +151,14 @@ public class QuotaService {
         transaction.set(docRef, newUser);
     }
 
-    private void resetQuota(String userId, PlanType plan) {
+    private void resetQuota(String userId, PlanType plan) throws ExecutionException, InterruptedException {
         Timestamp now = Timestamp.now();
         long newLimit = getQuotaLimitForPlan(plan);
         firestore.collection(COLLECTION_NAME).document(userId).update(
                 "quotaUsed", 0,
                 "quotaLimit", newLimit,
                 "periodStart", now,
-                "updatedAt", now);
+                "updatedAt", now).get();
         log.info("Reset quota for user {} with plan {} (limit: {})", userId, plan, newLimit);
     }
 
