@@ -75,4 +75,31 @@ public class ConverterIntegrationTest {
                 .body("errorCode", is("VALIDATION_ERROR"))
                 .body("message", containsString("empty"));
     }
+
+    @Test
+    public void testQuotaStatusEndpointWithValidUser() {
+        given()
+            .param("userId", "test-user")
+            .when().get("/converter/quotaStatus")
+            .then()
+                .statusCode(anyOf(is(200), is(404))) // User may or may not exist
+                .body(notNullValue());
+    }
+
+    @Test 
+    public void testQuotaStatusEndpointWithoutUserId() {
+        given()
+            .when().get("/converter/quotaStatus")
+            .then()
+                .statusCode(400); // Bad Request due to missing required parameter
+    }
+
+    @Test
+    public void testQuotaStatusEndpointWithEmptyUserId() {
+        given()
+            .param("userId", "")
+            .when().get("/converter/quotaStatus")
+            .then()
+                .statusCode(400); // Bad Request due to empty required parameter
+    }
 }
