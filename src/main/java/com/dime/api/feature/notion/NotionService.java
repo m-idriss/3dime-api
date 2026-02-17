@@ -8,17 +8,16 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
-import org.jboss.logging.Logger;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @ApplicationScoped
 public class NotionService {
-
-    private static final Logger LOG = Logger.getLogger(NotionService.class);
 
     @Inject
     @RestClient
@@ -38,11 +37,11 @@ public class NotionService {
 
     public Map<String, List<CmsItem>> getCmsContent() {
         if (databaseId == null || databaseId.trim().isEmpty()) {
-            LOG.warn("Notion CMS database ID not configured (notion.cms.database-id). Returning empty content.");
+            log.warn("Notion CMS database ID not configured (notion.cms.database-id). Returning empty content.");
             return new HashMap<>();
         }
 
-        LOG.infof("Fetching CMS content from Notion database: %s", databaseId);
+        log.info("Fetching CMS content from Notion database: {}", databaseId);
 
         try {
             // Build query payload
@@ -85,10 +84,10 @@ public class NotionService {
 
         } catch (org.jboss.resteasy.reactive.ClientWebApplicationException e) {
             String errorBody = e.getResponse().readEntity(String.class);
-            LOG.errorf(e, "Notion API error: %s", errorBody);
+            log.error("Notion API error: {}", errorBody, e);
             throw new RuntimeException("Notion API error: " + errorBody, e);
         } catch (Exception e) {
-            LOG.error("Failed to fetch CMS content from Notion", e);
+            log.error("Failed to fetch CMS content from Notion", e);
             throw new RuntimeException("Failed to fetch CMS content", e);
         }
     }
