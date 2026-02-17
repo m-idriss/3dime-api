@@ -52,9 +52,11 @@ public class QuotaService {
             if (isNewMonth(userQuota.periodStart)) {
                 resetQuota(userId, userQuota.getPlanType());
                 userQuota.quotaUsed = 0;
+                // Update the quota limit in memory to match what was set in the database
+                userQuota.quotaLimit = QUOTA_LIMITS.getOrDefault(userQuota.getPlanType(), DEFAULT_QUOTA_LIMIT);
             }
 
-            long limit = QUOTA_LIMITS.getOrDefault(userQuota.getPlanType(), DEFAULT_QUOTA_LIMIT);
+            long limit = userQuota.quotaLimit;
             long remaining = Math.max(0, limit - userQuota.quotaUsed);
             boolean allowed = userQuota.quotaUsed < limit;
 
