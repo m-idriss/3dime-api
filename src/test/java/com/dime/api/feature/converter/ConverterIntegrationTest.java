@@ -63,7 +63,7 @@ public class ConverterIntegrationTest {
         } else if (statusCode == 422 || statusCode == 500 || statusCode == 502) {
             // On processing/server error, verify error structure
             response.body("success", is(false))
-                .body("error", notNullValue())
+                .body("errorCode", notNullValue())
                 .body("message", notNullValue());
         }
     }
