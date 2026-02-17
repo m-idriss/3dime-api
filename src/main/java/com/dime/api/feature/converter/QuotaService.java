@@ -38,7 +38,7 @@ public class QuotaService {
 
             if (!document.exists()) {
                 UserQuota newUser = createUser(userId);
-                return new QuotaCheckResult(true, newUser.quotaLimit, newUser.quotaLimit, newUser.plan);
+                return new QuotaCheckResult(true, newUser.quotaLimit, newUser.quotaLimit, newUser.getPlanType());
             }
 
             UserQuota userQuota = document.toObject(UserQuota.class);
@@ -49,15 +49,15 @@ public class QuotaService {
 
             // Check for new month
             if (isNewMonth(userQuota.periodStart)) {
-                resetQuota(userId, userQuota.plan);
+                resetQuota(userId, userQuota.getPlanType());
                 userQuota.quotaUsed = 0;
             }
 
-            long limit = QUOTA_LIMITS.getOrDefault(userQuota.plan, 10L);
+            long limit = QUOTA_LIMITS.getOrDefault(userQuota.getPlanType(), 10L);
             long remaining = Math.max(0, limit - userQuota.quotaUsed);
             boolean allowed = userQuota.quotaUsed < limit;
 
-            return new QuotaCheckResult(allowed, remaining, limit, userQuota.plan);
+            return new QuotaCheckResult(allowed, remaining, limit, userQuota.getPlanType());
 
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error checking quota for user {}", userId, e);
@@ -93,7 +93,7 @@ public class QuotaService {
                         notionQuotaService.syncToNotion(
                                 userId,
                                 quota.quotaUsed,
-                                quota.plan,
+                                quota.getPlanType(),
                                 quota.periodStart.toDate().toInstant());
                     }
                 }
