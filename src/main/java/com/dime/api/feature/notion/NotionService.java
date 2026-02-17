@@ -1,5 +1,6 @@
 package com.dime.api.feature.notion;
 
+import com.dime.api.feature.shared.exception.ExternalServiceException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -83,12 +84,19 @@ public class NotionService {
             return groupedContent;
 
         } catch (org.jboss.resteasy.reactive.ClientWebApplicationException e) {
-            String errorBody = e.getResponse().readEntity(String.class);
-            log.error("Notion API error: {}", errorBody, e);
-            throw new RuntimeException("Notion API error: " + errorBody, e);
+            String errorBody;
+            try {
+                errorBody = e.getResponse().readEntity(String.class);
+            } catch (Exception readEx) {
+                errorBody = "Unable to read error response";
+            }
+            log.error("Notion API error: {} - Status: {}", errorBody, e.getResponse().getStatus(), e);
+            throw new ExternalServiceException("Notion", 
+                "Notion API returned error (Status " + e.getResponse().getStatus() + "): " + errorBody, e);
         } catch (Exception e) {
             log.error("Failed to fetch CMS content from Notion", e);
-            throw new RuntimeException("Failed to fetch CMS content", e);
+            throw new ExternalServiceException("Notion", 
+                "Failed to fetch CMS content from Notion: " + e.getMessage(), e);
         }
     }
 

@@ -1,6 +1,11 @@
 package com.dime.api.feature.converter;
 
+import com.dime.api.feature.shared.exception.ProcessingException;
+import com.dime.api.feature.shared.exception.QuotaException;
+import com.dime.api.feature.shared.exception.ValidationException;
 import jakarta.inject.Inject;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -10,11 +15,18 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 import java.io.IOException;
+import java.util.Map;
 
 @Slf4j
 @Path("/converter")
+@Tag(name = "Image Converter", description = "AI-powered image to calendar conversion")
 public class ConverterResource {
 
     @Inject
@@ -29,16 +41,31 @@ public class ConverterResource {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response convert(ConverterRequest request, @Context HttpHeaders headers) {
+    @Operation(summary = "Convert images to calendar events", 
+               description = "Uses AI to extract calendar events from images and convert them to ICS format")
+    @APIResponse(responseCode = "200", description = "Conversion successful", 
+                content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ConverterResponse.class)))
+    @APIResponse(responseCode = "400", description = "Invalid request data")
+    @APIResponse(responseCode = "422", description = "Processing error - valid input but conversion failed")
+    @APIResponse(responseCode = "429", description = "Quota exceeded")
+    @APIResponse(responseCode = "500", description = "Internal server error")
+    public Response convert(@Valid @NotNull ConverterRequest request, @Context HttpHeaders headers) {
         long startTime = System.currentTimeMillis();
         String userId = request.userId != null ? request.userId : "anonymous";
         String domain = getDomain(headers);
         int fileCount = request.files != null ? request.files.size() : 0;
 
+        // Validate input
         if (fileCount == 0) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(ConverterResponse.error("No files provided", "Please provide at least one image."))
-                    .build();
+            throw new ValidationException("No files provided. Please provide at least one image.");
+        }
+
+        // Check for valid file data
+        boolean hasValidFile = request.files.stream()
+            .anyMatch(file -> (file.dataUrl != null && !file.dataUrl.trim().isEmpty()) || 
+                             (file.url != null && !file.url.trim().isEmpty()));
+        if (!hasValidFile) {
+            throw new ValidationException("All provided files are empty. Please provide valid image data.");
         }
 
         // Check Quota
@@ -46,11 +73,9 @@ public class ConverterResource {
         if (!quota.allowed()) {
             trackingService.logQuotaExceeded(userId, (int) (quota.limit() - quota.remaining()), (int) quota.limit(),
                     quota.plan().toString(), domain);
-            return Response.status(Response.Status.TOO_MANY_REQUESTS)
-                    .entity(ConverterResponse.error(
-                            "You've reached your monthly conversion limit.",
-                            "Monthly limit reached. Limit: " + quota.limit()))
-                    .build();
+            
+            throw new QuotaException("You've reached your monthly conversion limit. Limit: " + quota.limit(),
+                    Map.of("limit", quota.limit(), "remaining", quota.remaining(), "plan", quota.plan()));
         }
 
         try {
@@ -60,19 +85,16 @@ public class ConverterResource {
             if (icsContent == null || icsContent.isEmpty() || icsContent.equalsIgnoreCase("null")) {
                 trackingService.logConversionError(userId, fileCount, "No events found in images",
                         System.currentTimeMillis() - startTime, domain);
-                return Response
-                        .ok(ConverterResponse.error("No events found in images",
-                                "AI determined there are no calendar events."))
-                        .build();
+                throw new ProcessingException("No calendar events found in the provided images. " +
+                    "Please ensure the images contain clear calendar information.",
+                    Map.of("reason", "no_events_detected", "fileCount", fileCount));
             }
 
             if (!isValidIcs(icsContent)) {
                 trackingService.logConversionError(userId, fileCount, "Generated ICS is invalid",
                         System.currentTimeMillis() - startTime, domain);
-                return Response
-                        .ok(ConverterResponse.error("Generated ICS is invalid",
-                                "The AI generated invalid calendar data."))
-                        .build();
+                throw new ProcessingException("The AI generated invalid calendar data. Please try again with clearer images.",
+                    Map.of("reason", "invalid_ics_format", "fileCount", fileCount));
             }
 
             // Success
@@ -84,12 +106,10 @@ public class ConverterResource {
             return Response.ok(new ConverterResponse(true, icsContent)).build();
 
         } catch (IOException e) {
-            log.error("Error processing conversion request for user {}", userId, e);
+            log.error("Error processing conversion request for user {}: {}", userId, e.getMessage(), e);
             trackingService.logConversionError(userId, fileCount, e.getMessage(),
                     System.currentTimeMillis() - startTime, domain);
-            return Response.serverError()
-                    .entity(ConverterResponse.error("Internal Server Error", e.getMessage()))
-                    .build();
+            throw new ProcessingException("Failed to process images for conversion: " + e.getMessage(), e);
         }
     }
 

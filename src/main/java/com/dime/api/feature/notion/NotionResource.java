@@ -26,7 +26,10 @@ public class NotionResource {
     @Path("/cms")
     @Produces(MediaType.APPLICATION_JSON)
     @Operation(summary = "Get CMS content", description = "Fetches and groups content (tools, resources) from the Notion CMS database")
-    @APIResponse(responseCode = "200", description = "Content retrieved successfully", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = Map.class)))
+    @APIResponse(responseCode = "200", description = "Content retrieved successfully", 
+                content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = Map.class)))
+    @APIResponse(responseCode = "502", description = "Failed to fetch content from Notion API")
+    @APIResponse(responseCode = "500", description = "Internal server error")
     public Response getCmsContent() {
         Map<String, List<NotionService.CmsItem>> content = notionService.getCmsContent();
         return Response.ok(content).build();
