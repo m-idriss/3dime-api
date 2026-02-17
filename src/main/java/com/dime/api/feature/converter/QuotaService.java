@@ -150,11 +150,13 @@ public class QuotaService {
 
     private void resetQuota(String userId, PlanType plan) {
         Timestamp now = Timestamp.now();
+        long newLimit = QUOTA_LIMITS.getOrDefault(plan, QUOTA_LIMITS.get(DEFAULT_PLAN));
         firestore.collection(COLLECTION_NAME).document(userId).update(
                 "quotaUsed", 0,
+                "quotaLimit", newLimit,
                 "periodStart", now,
                 "updatedAt", now);
-        log.info("Reset quota for user {}", userId);
+        log.info("Reset quota for user {} with plan {} (limit: {})", userId, plan, newLimit);
     }
 
     private boolean isNewMonth(Timestamp periodStart) {
