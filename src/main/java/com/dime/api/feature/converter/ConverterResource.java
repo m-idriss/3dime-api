@@ -110,7 +110,7 @@ public class ConverterResource {
     }
 
     @GET
-    @Path("/quotaStatus")
+    @Path("/quota-status")
     @Produces(MediaType.APPLICATION_JSON)
     @Operation(summary = "Get user quota status", description = "Retrieves the current quota usage and plan information for a user")
     @APIResponse(responseCode = "200", description = "Quota status retrieved successfully", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = UserQuota.class)))
@@ -135,6 +135,19 @@ public class ConverterResource {
                     .entity(Map.of("error", "Internal server error"))
                     .build();
         }
+    }
+
+    @GET
+    @Path("/statistics")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Operation(summary = "Get usage statistics", description = "Retrieves usage statistics and analytics data")
+    @APIResponse(responseCode = "200", description = "Statistics retrieved successfully", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = TrackingService.Statistics.class)))
+    @APIResponse(responseCode = "502", description = "Failed to fetch statistics from external service")
+    @APIResponse(responseCode = "500", description = "Internal server error")
+    public Response getStatistics() {
+        log.info("GET /converter/statistics endpoint called");
+        TrackingService.Statistics stats = trackingService.getStatistics();
+        return Response.ok(stats).build();
     }
 
     private String getDomain(HttpHeaders headers) {
