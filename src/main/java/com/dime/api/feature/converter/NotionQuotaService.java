@@ -12,6 +12,8 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -95,6 +97,86 @@ public class NotionQuotaService {
         }
     }
 
+    public List<QuotaData> fetchAllFromNotion() {
+        if (!isEnabled())
+            return List.of();
+
+        List<QuotaData> results = new ArrayList<>();
+        try {
+            ObjectNode query = objectMapper.createObjectNode();
+            JsonNode response = notionClient.queryDatabase(bearerToken(token), version, quotaDbId.get(), query);
+
+            if (response.has("results") && response.get("results").isArray()) {
+                for (JsonNode page : response.get("results")) {
+                    JsonNode props = page.get("properties");
+                    if (props != null) {
+                        String userId = getTitleContent(props.get("User ID"));
+                        long usageCount = getNumberContent(props.get("Usage Count"));
+                        String planStr = getSelectContent(props.get("Plan"));
+                        String lastResetStr = getDateContent(props.get("Last Reset"));
+
+                        if (userId != null && !userId.isEmpty()) {
+                            results.add(new QuotaData(
+                                    userId,
+                                    usageCount,
+                                    lastResetStr != null ? Instant.parse(lastResetStr) : Instant.now(),
+                                    PlanType.fromString(planStr)));
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to fetch all from Notion (non-blocking)", e);
+        }
+        return results;
+    }
+
+    private String getTitleContent(JsonNode property) {
+        if (property != null && property.has("title") && property.get("title").isArray()
+                && property.get("title").size() > 0) {
+            return property.get("title").get(0).get("text").get("content").asText();
+        }
+        return null;
+    }
+
+    private long getNumberContent(JsonNode property) {
+        if (property != null && property.has("number")) {
+            return property.get("number").asLong();
+        }
+        return 0;
+    }
+
+    private String getSelectContent(JsonNode property) {
+        if (property != null && property.has("select") && !property.get("select").isNull()) {
+            return property.get("select").get("name").asText();
+        }
+        return null;
+    }
+
+    private String getDateContent(JsonNode property) {
+        if (property != null && property.has("date") && !property.get("date").isNull()) {
+            return property.get("date").get("start").asText();
+        }
+        return null;
+    }
+
+    public void deleteFromNotion(String userId) {
+        if (!isEnabled())
+            return;
+
+        try {
+            String pageId = getPageId(userId);
+            if (pageId != null) {
+                ObjectNode properties = objectMapper.createObjectNode();
+                properties.put("archived", true);
+                notionClient.updatePage(bearerToken(token), version, pageId, properties);
+                log.info("Archived quota page in Notion for user {}", userId);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to delete from Notion for user {} (non-blocking)", userId, e);
+        }
+    }
+
     private void addTitleProperty(ObjectNode properties, String name, String content) {
         ObjectNode titleWrapper = properties.putObject(name);
         ArrayNode titleArray = titleWrapper.putArray("title");
@@ -119,6 +201,6 @@ public class NotionQuotaService {
         return raw.startsWith("Bearer ") ? raw : "Bearer " + raw;
     }
 
-    public record QuotaData(long usageCount, Instant lastReset, PlanType plan) {
+    public record QuotaData(String userId, long usageCount, Instant lastReset, PlanType plan) {
     }
 }

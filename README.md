@@ -141,6 +141,8 @@ A lightweight guide to the available endpoints for frontend integration.
 | `GET` | `/users/{userId}` | Get specific user quota |
 | `PATCH` | `/users/{userId}` | Update user quota (merge) |
 | `DELETE` | `/users/{userId}` | Remove user record |
+| `POST` | `/users/sync-notion` | Push: Firestore -> Notion (Optional list of IDs in body) |
+| `POST` | `/users/sync-firebase` | Pull: Notion -> Firestore (Optional list of IDs in body) |
 
 ### 🩺 System
 | Method | Endpoint | Description |

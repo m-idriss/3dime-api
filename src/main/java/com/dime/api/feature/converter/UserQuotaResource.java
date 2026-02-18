@@ -66,4 +66,24 @@ public class UserQuotaResource {
         quotaService.deleteQuota(userId);
         return Response.noContent().build();
     }
+
+    @POST
+    @Path("/sync-notion")
+    @Operation(summary = "Sync to Notion", description = "Triggers a synchronization of all user quotas from Firestore to Notion. Optionally provide a list of user IDs to sync only those users.")
+    @APIResponse(responseCode = "202", description = "Synchronization started")
+    public Response syncToNotion(List<String> userIds) {
+        log.info("POST /users/sync-notion called with {} userIds", userIds == null ? 0 : userIds.size());
+        quotaService.syncToNotion(userIds);
+        return Response.accepted().build();
+    }
+
+    @POST
+    @Path("/sync-firebase")
+    @Operation(summary = "Sync from Notion", description = "Triggers a synchronization of user quotas from Notion back to Firestore. Optionally provide a list of user IDs to sync only those users.")
+    @APIResponse(responseCode = "202", description = "Synchronization started")
+    public Response syncFromNotion(List<String> userIds) {
+        log.info("POST /users/sync-firebase called with {} userIds", userIds == null ? 0 : userIds.size());
+        quotaService.syncFromNotion(userIds);
+        return Response.accepted().build();
+    }
 }
