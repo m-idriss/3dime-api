@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 @Path("/notion")
-@Tag(name = "Notion CMS", description = "Endpoints for fetching content from Notion CMS")
+@Tag(name = "portfolio", description = "Notion CMS content management")
 public class NotionResource {
 
     @Inject
@@ -26,8 +26,7 @@ public class NotionResource {
     @Path("/cms")
     @Produces(MediaType.APPLICATION_JSON)
     @Operation(summary = "Get CMS content", description = "Fetches and groups content (tools, resources) from the Notion CMS database")
-    @APIResponse(responseCode = "200", description = "Content retrieved successfully", 
-                content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = Map.class)))
+    @APIResponse(responseCode = "200", description = "Content retrieved successfully", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = Map.class)))
     @APIResponse(responseCode = "502", description = "Failed to fetch content from Notion API")
     @APIResponse(responseCode = "500", description = "Internal server error")
     public Response getCmsContent() {

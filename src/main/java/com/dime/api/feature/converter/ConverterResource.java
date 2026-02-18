@@ -23,7 +23,7 @@ import java.util.Map;
 
 @Slf4j
 @Path("/converter")
-@Tag(name = "Image Converter", description = "AI-powered image to calendar conversion")
+@Tag(name = "converter", description = "AI-powered image to calendar conversion and quota status")
 public class ConverterResource {
 
     @Inject

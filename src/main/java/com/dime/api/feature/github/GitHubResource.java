@@ -17,7 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Path("/github")
-@Tag(name = "GitHub", description = "GitHub API operations")
+@Tag(name = "portfolio", description = "GitHub profile and contribution data")
 public class GitHubResource {
 
     @Inject
@@ -57,7 +57,7 @@ public class GitHubResource {
     @APIResponse(responseCode = "500", description = "Internal server error")
     public List<Map<String, Object>> getCommits(@QueryParam("months") String monthsStr) {
         log.info("GET /github/commits endpoint called with months={}", monthsStr);
-        
+
         int months = 12; // default
         if (monthsStr != null) {
             try {

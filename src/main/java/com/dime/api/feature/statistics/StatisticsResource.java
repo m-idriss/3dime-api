@@ -17,7 +17,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 @Slf4j
 @Path("/statistics")
-@Tag(name = "Statistics", description = "Usage statistics and analytics")
+@Tag(name = "converter", description = "Usage statistics and analytics")
 public class StatisticsResource {
 
     @Inject
@@ -26,8 +26,7 @@ public class StatisticsResource {
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Operation(summary = "Get usage statistics", description = "Retrieves usage statistics and analytics data")
-    @APIResponse(responseCode = "200", description = "Statistics retrieved successfully", 
-                content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = Statistics.class)))
+    @APIResponse(responseCode = "200", description = "Statistics retrieved successfully", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = Statistics.class)))
     @APIResponse(responseCode = "502", description = "Failed to fetch statistics from external service")
     @APIResponse(responseCode = "500", description = "Internal server error")
     public Response getStatistics() {
