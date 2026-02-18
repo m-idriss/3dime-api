@@ -41,7 +41,7 @@ public class GitHubService {
     log.info("Fetching GitHub user info for: {}", username);
 
     try {
-      GitHubUser user = gitHubClient.getUser(username);
+      GitHubUser user = gitHubClient.getUser(getAuthHeader().orElse(null), username);
       log.info("Successfully fetched user info for: {}", username);
       return user;
     } catch (WebApplicationException e) {
@@ -58,7 +58,7 @@ public class GitHubService {
   @CacheResult(cacheName = "github-social-cache")
   public JsonNode getSocialAccounts() {
     try {
-      return gitHubClient.getSocialAccounts(username);
+      return gitHubClient.getSocialAccounts(getAuthHeader().orElse(null), username);
     } catch (WebApplicationException e) {
       log.error("Failed to fetch GitHub social accounts for: {}", username, e);
       throw new ExternalServiceException("GitHub",
@@ -68,6 +68,11 @@ public class GitHubService {
       throw new ExternalServiceException("GitHub",
           "Unexpected error occurred while calling GitHub social accounts API: " + e.getMessage(), e);
     }
+  }
+
+  private Optional<String> getAuthHeader() {
+    return token.filter(t -> !t.trim().isEmpty())
+        .map(t -> t.startsWith("Bearer ") ? t : "Bearer " + t);
   }
 
   @CacheResult(cacheName = "github-commits-cache")
