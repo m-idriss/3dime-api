@@ -154,6 +154,8 @@ public class QuotaService {
     }
 
     private void resetQuota(String userId, PlanType plan) {
+        if (userId == null)
+            return;
         Timestamp now = Timestamp.now();
         firestore.collection(COLLECTION_NAME).document(userId).update(
                 "quotaUsed", 0,
@@ -189,6 +191,18 @@ public class QuotaService {
             quota.updatedAt = Timestamp.now();
             firestore.collection(COLLECTION_NAME).document(userId).set(quota, SetOptions.merge()).get();
             log.info("Updated quota for user {}", userId);
+
+            // Sync to Notion after update
+            try {
+                notionQuotaService.syncToNotion(
+                        userId,
+                        quota.quotaUsed,
+                        quota.getPlanType(),
+                        quota.periodStart != null ? quota.periodStart.toDate().toInstant() : Instant.now());
+            } catch (Exception e) {
+                log.warn("Failed to sync to Notion for user {} after update (non-blocking)", userId, e);
+            }
+
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error updating quota for user {}", userId, e);
         }
@@ -198,8 +212,104 @@ public class QuotaService {
         try {
             firestore.collection(COLLECTION_NAME).document(userId).delete().get();
             log.info("Deleted quota for user {}", userId);
+
+            // Delete from Notion after deletion
+            try {
+                notionQuotaService.deleteFromNotion(userId);
+            } catch (Exception e) {
+                log.warn("Failed to delete from Notion for user {} (non-blocking)", userId, e);
+            }
+
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error deleting quota for user {}", userId, e);
+        }
+    }
+
+    public void syncToNotion(List<String> userIds) {
+        log.info("Starting targeted quota sync TO Notion for {} users",
+                userIds == null || userIds.isEmpty() ? "all" : userIds.size());
+
+        List<UserQuotaWrapper> allQuotas = findAll();
+
+        if (userIds != null && !userIds.isEmpty()) {
+            allQuotas = allQuotas.stream()
+                    .filter(wrapper -> userIds.contains(wrapper.userId()))
+                    .collect(Collectors.toList());
+        }
+
+        for (UserQuotaWrapper wrapper : allQuotas) {
+            if (wrapper.quota() != null) {
+                try {
+                    notionQuotaService.syncToNotion(
+                            wrapper.userId(),
+                            wrapper.quota().quotaUsed,
+                            wrapper.quota().getPlanType(),
+                            wrapper.quota().periodStart != null ? wrapper.quota().periodStart.toDate().toInstant()
+                                    : Instant.now());
+                } catch (Exception e) {
+                    log.warn("Failed to sync user {} to Notion during sync", wrapper.userId(), e);
+                }
+            }
+        }
+        log.info("Completed quota sync TO Notion for {} users", allQuotas.size());
+    }
+
+    public void syncFromNotion(List<String> userIds) {
+        log.info("Starting targeted quota sync FROM Notion to Firestore for {} users",
+                userIds == null || userIds.isEmpty() ? "all" : userIds.size());
+
+        List<NotionQuotaService.QuotaData> notionData = notionQuotaService.fetchAllFromNotion();
+
+        if (userIds != null && !userIds.isEmpty()) {
+            notionData = notionData.stream()
+                    .filter(data -> userIds.contains(data.userId()))
+                    .collect(Collectors.toList());
+        }
+
+        for (NotionQuotaService.QuotaData data : notionData) {
+            try {
+                updateQuotaFromNotion(data);
+            } catch (Exception e) {
+                log.warn("Failed to sync user {} from Notion", data.userId(), e);
+            }
+        }
+        log.info("Completed quota sync FROM Notion for {} records", notionData.size());
+    }
+
+    private void updateQuotaFromNotion(NotionQuotaService.QuotaData data) {
+        try {
+            DocumentReference docRef = firestore.collection(COLLECTION_NAME).document(data.userId());
+            Timestamp periodStart = Timestamp.ofTimeSecondsAndNanos(data.lastReset().getEpochSecond(),
+                    data.lastReset().getNano());
+
+            long limit = QUOTA_LIMITS.getOrDefault(data.plan(), 10L);
+
+            firestore.runTransaction(transaction -> {
+                DocumentSnapshot snapshot = transaction.get(docRef).get();
+                Timestamp now = Timestamp.now();
+
+                if (!snapshot.exists()) {
+                    UserQuota newUser = new UserQuota(
+                            data.plan(),
+                            data.usageCount(),
+                            limit,
+                            periodStart,
+                            now,
+                            now);
+                    transaction.set(docRef, newUser);
+                } else {
+                    transaction.update(docRef,
+                            "plan", data.plan().name(),
+                            "quotaUsed", data.usageCount(),
+                            "quotaLimit", limit,
+                            "periodStart", periodStart,
+                            "updatedAt", now);
+                }
+                return null;
+            }).get();
+            log.info("Synced user {} from Notion to Firestore", data.userId());
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Error updating user {} from Notion data", data.userId(), e);
         }
     }
 }
