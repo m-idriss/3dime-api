@@ -1,6 +1,7 @@
 package com.dime.api.feature.converter;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.quarkus.cache.CacheResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -104,6 +105,7 @@ public class TrackingService {
         }
     }
 
+    @CacheResult(cacheName = "statistics-cache")
     public Statistics getStatistics() {
         if (!isEnabled()) {
             return new Statistics(0, 0);
