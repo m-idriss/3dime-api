@@ -16,8 +16,6 @@ import java.util.Optional;
 
 /**
  * Background Notion sync service for quota data.
- * This service syncs Firestore quota data to Notion for business reporting/CRM.
- * It NEVER blocks API responses and NEVER affects request authorization.
  */
 @Slf4j
 @ApplicationScoped
@@ -43,9 +41,6 @@ public class NotionQuotaService {
         return quotaDbId.isPresent() && !quotaDbId.get().trim().isEmpty();
     }
 
-    /**
-     * Get page ID for a user's quota entry in Notion
-     */
     private String getPageId(String userId) {
         if (!isEnabled())
             return null;
@@ -56,8 +51,7 @@ public class NotionQuotaService {
             filter.put("property", "User ID");
             filter.putObject("title").put("equals", userId);
 
-            String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
-            JsonNode response = notionClient.queryDatabase(authToken, version, quotaDbId.get(), query);
+            JsonNode response = notionClient.queryDatabase(bearerToken(token), version, quotaDbId.get(), query);
 
             if (response.has("results") && response.get("results").isArray() && response.get("results").size() > 0) {
                 return response.get("results").get(0).get("id").asText();
@@ -69,101 +63,60 @@ public class NotionQuotaService {
         }
     }
 
-    /**
-     * Sync user quota to Notion (background, non-blocking).
-     * This is called asynchronously after Firestore updates.
-     * If it fails, it only logs an error - it NEVER blocks the request.
-     */
     public void syncToNotion(String userId, long quotaUsed, PlanType plan, Instant periodStart) {
-        if (!isEnabled()) {
-            return; // Silently skip if Notion is disabled
-        }
+        if (!isEnabled())
+            return;
 
         try {
             String pageId = getPageId(userId);
             ObjectNode properties = objectMapper.createObjectNode();
 
-            // User ID (title property)
-            ArrayNode titleArray = properties.putArray("User ID").addObject().putArray("title");
-            titleArray.addObject().putObject("text").put("content", userId);
+            addTitleProperty(properties, "User ID", userId);
+            addNumberProperty(properties, "Usage Count", quotaUsed);
+            addDateProperty(properties, "Last Reset", periodStart.toString());
+            addSelectProperty(properties, "Plan", plan.name());
 
-            // Usage Count (number property)
-            properties.putObject("Usage Count").put("number", quotaUsed);
-
-            // Last Reset (date property)
-            properties.putObject("Last Reset").putObject("date").put("start", periodStart.toString());
-
-            // Plan (select property)
-            properties.putObject("Plan").putObject("select").put("name", plan.name());
-
-            String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
+            String authToken = bearerToken(token);
 
             if (pageId != null) {
-                // Update existing page
                 ObjectNode updatePayload = objectMapper.createObjectNode();
                 updatePayload.set("properties", properties);
-
                 notionClient.updatePage(authToken, version, pageId, updatePayload);
                 log.info("Synced quota to Notion (updated) for user {}", userId);
             } else {
-                // Create new page
                 ObjectNode createPayload = objectMapper.createObjectNode();
                 createPayload.putObject("parent").put("database_id", quotaDbId.get());
                 createPayload.set("properties", properties);
-
                 notionClient.createPage(authToken, version, createPayload);
                 log.info("Synced quota to Notion (created) for user {}", userId);
             }
         } catch (Exception e) {
-            // Only log error - NEVER throw or block
             log.warn("Failed to sync to Notion for user {} (non-blocking)", userId, e);
         }
     }
 
-    /**
-     * Read user data from Notion (for legacy migration or fallback).
-     */
-    public QuotaData readFromNotion(String userId) {
-        if (!isEnabled())
+    private void addTitleProperty(ObjectNode properties, String name, String content) {
+        ObjectNode titleWrapper = properties.putObject(name);
+        ArrayNode titleArray = titleWrapper.putArray("title");
+        titleArray.addObject().putObject("text").put("content", content);
+    }
+
+    private void addNumberProperty(ObjectNode properties, String name, Number value) {
+        properties.putObject(name).put("number", value.doubleValue());
+    }
+
+    private void addDateProperty(ObjectNode properties, String name, String date) {
+        properties.putObject(name).putObject("date").put("start", date);
+    }
+
+    private void addSelectProperty(ObjectNode properties, String name, String option) {
+        properties.putObject(name).putObject("select").put("name", option);
+    }
+
+    private String bearerToken(String raw) {
+        if (raw == null)
             return null;
-
-        try {
-            ObjectNode query = objectMapper.createObjectNode();
-            ObjectNode filter = query.putObject("filter");
-            filter.put("property", "User ID");
-            filter.putObject("title").put("equals", userId);
-
-            String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
-            JsonNode response = notionClient.queryDatabase(authToken, version, quotaDbId.get(), query);
-
-            if (!response.has("results") || response.get("results").size() == 0) {
-                return null;
-            }
-
-            JsonNode page = response.get("results").get(0);
-            JsonNode props = page.get("properties");
-
-            long usageCount = props.has("Usage Count") && props.get("Usage Count").has("number")
-                    ? props.get("Usage Count").get("number").asLong(0)
-                    : 0;
-
-            String lastResetStr = props.has("Last Reset") && props.get("Last Reset").has("date")
-                    ? props.get("Last Reset").get("date").get("start").asText()
-                    : Instant.now().toString();
-
-            String planName = props.has("Plan") && props.get("Plan").has("select")
-                    && !props.get("Plan").get("select").isNull()
-                            ? props.get("Plan").get("select").get("name").asText("FREE")
-                            : "FREE";
-
-            return new QuotaData(
-                    usageCount,
-                    Instant.parse(lastResetStr),
-                    PlanType.fromString(planName));
-        } catch (Exception e) {
-            log.warn("Failed to read from Notion for user {}", userId, e);
-            return null;
-        }
+        return raw.startsWith("Bearer ") ? raw : "Bearer " + raw;
     }
 
     public record QuotaData(long usageCount, Instant lastReset, PlanType plan) {

@@ -27,6 +27,8 @@ public class GeminiService {
 
     private static final Pattern BASE64_PATTERN = Pattern.compile("^data:(.+?);base64,(.+)$");
 
+    private volatile GoogleCredentials cachedCredentials;
+
     @Inject
     @RestClient
     GeminiClient geminiClient;
@@ -52,8 +54,8 @@ public class GeminiService {
             token = getAccessToken();
         } catch (IOException e) {
             log.error("Failed to get Google access token", e);
-            throw new ExternalServiceException("Google Cloud", 
-                "Failed to authenticate with Google Cloud for Gemini API access", e);
+            throw new ExternalServiceException("Google Cloud",
+                    "Failed to authenticate with Google Cloud for Gemini API access", e);
         }
 
         String today = request.currentDate != null ? request.currentDate : java.time.LocalDate.now().toString();
@@ -83,6 +85,8 @@ public class GeminiService {
                         ObjectNode inlineData = inlineDataPart.putObject("inline_data");
                         inlineData.put("mime_type", mimeType);
                         inlineData.put("data", data);
+                    } else if (file.url != null) {
+                        log.warn("URL-based image files are not yet supported. Skipping: {}", file.url);
                     }
                 }
             }
@@ -93,14 +97,14 @@ public class GeminiService {
         generationConfig.put("maxOutputTokens", 8192);
 
         log.info("Calling Gemini API with model {}", modelName);
-        
+
         JsonNode response;
         try {
             response = geminiClient.generateContent("Bearer " + token, modelName, requestBody);
         } catch (Exception e) {
             log.error("Failed to call Gemini API", e);
-            throw new ExternalServiceException("Gemini", 
-                "Failed to generate content using Gemini API: " + e.getMessage(), e);
+            throw new ExternalServiceException("Gemini",
+                    "Failed to generate content using Gemini API: " + e.getMessage(), e);
         }
 
         if (response.has("error")) {
@@ -111,16 +115,16 @@ public class GeminiService {
 
         if (response.has("candidates") && response.get("candidates").size() > 0) {
             JsonNode candidate = response.get("candidates").get(0);
-            
+
             // Check if candidate was blocked
-            if (candidate.has("finishReason") && 
-                !"STOP".equals(candidate.get("finishReason").asText())) {
+            if (candidate.has("finishReason") &&
+                    !"STOP".equals(candidate.get("finishReason").asText())) {
                 String finishReason = candidate.get("finishReason").asText();
                 log.warn("Gemini response was blocked or incomplete: {}", finishReason);
                 throw new ProcessingException("Content generation was blocked or incomplete. " +
-                    "Please try with different images. Reason: " + finishReason);
+                        "Please try with different images. Reason: " + finishReason);
             }
-            
+
             if (candidate.has("content") && candidate.get("content").has("parts")) {
                 String text = candidate.get("content").get("parts").get(0).get("text").asText();
                 return cleanIcs(text);
@@ -132,23 +136,29 @@ public class GeminiService {
     }
 
     private String getAccessToken() throws IOException {
-        GoogleCredentials credentials;
-        
-        if (apiKeyJson.isPresent() && !apiKeyJson.get().trim().isEmpty()) {
-            // Use the configured service account JSON
-            log.debug("Using configured service account credentials");
-            ByteArrayInputStream credentialsStream = new ByteArrayInputStream(apiKeyJson.get().getBytes());
-            credentials = ServiceAccountCredentials.fromStream(credentialsStream)
-                    .createScoped(Collections.singleton("https://www.googleapis.com/auth/generative-language"));
-        } else {
-            // Fallback to application default credentials
-            log.debug("Using application default credentials");
-            credentials = GoogleCredentials.getApplicationDefault()
-                    .createScoped(Collections.singleton("https://www.googleapis.com/auth/generative-language"));
+        if (cachedCredentials == null) {
+            synchronized (this) {
+                if (cachedCredentials == null) {
+                    if (apiKeyJson.isPresent() && !apiKeyJson.get().trim().isEmpty()) {
+                        // Use the configured service account JSON
+                        log.debug("Using configured service account credentials");
+                        ByteArrayInputStream credentialsStream = new ByteArrayInputStream(apiKeyJson.get().getBytes());
+                        cachedCredentials = ServiceAccountCredentials.fromStream(credentialsStream)
+                                .createScoped(
+                                        Collections.singleton("https://www.googleapis.com/auth/generative-language"));
+                    } else {
+                        // Fallback to application default credentials
+                        log.debug("Using application default credentials");
+                        cachedCredentials = GoogleCredentials.getApplicationDefault()
+                                .createScoped(
+                                        Collections.singleton("https://www.googleapis.com/auth/generative-language"));
+                    }
+                }
+            }
         }
-        
-        credentials.refreshIfExpired();
-        return credentials.getAccessToken().getTokenValue();
+
+        cachedCredentials.refreshIfExpired();
+        return cachedCredentials.getAccessToken().getTokenValue();
     }
 
     private String cleanIcs(String text) {

@@ -1,9 +1,8 @@
 package com.dime.api.feature.shared.exception;
 
-import jakarta.ws.rs.core.Response;
-
 /**
- * Exception for processing errors where input is valid but processing fails (422 Unprocessable Entity)
+ * Exception for processing errors where input is valid but processing fails
+ * (422 Unprocessable Entity)
  */
 public class ProcessingException extends BusinessException {
 
@@ -21,6 +20,6 @@ public class ProcessingException extends BusinessException {
 
     @Override
     public int getHttpStatusCode() {
-        return Response.Status.fromStatusCode(422).getStatusCode(); // Unprocessable Entity
+        return 422; // Unprocessable Entity
     }
 }

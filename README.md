@@ -1,7 +1,7 @@
 # 3dime-api
 
 [![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
-[![Quarkus](https://img.shields.io/badge/Quarkus-3.6.4-blue.svg)](https://quarkus.io/)
+[![Quarkus](https://img.shields.io/badge/Quarkus-3.31.3-blue.svg)](https://quarkus.io/)
 [![Google Cloud](https://img.shields.io/badge/Google%20Cloud-Run-4285F4.svg)](https://cloud.google.com/run)
 
 A production-ready REST API built with Quarkus and Java 21, designed for Google Cloud Run deployment. This API provides AI-powered image-to-calendar conversion, GitHub integration, Notion CMS content management, and usage analytics.
@@ -263,7 +263,7 @@ The buildpack automatically:
 
 ## 🛠️ Technology Stack
 
-- **Framework**: [Quarkus 3.6.4](https://quarkus.io/) - Supersonic Subatomic Java
+- **Framework**: [Quarkus 3.31.3](https://quarkus.io/) - Supersonic Subatomic Java
 - **Language**: Java 21
 - **Build Tool**: Maven
 - **Database**: Google Cloud Firestore
