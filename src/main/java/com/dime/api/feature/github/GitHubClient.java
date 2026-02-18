@@ -20,12 +20,12 @@ public interface GitHubClient {
     @Produces(MediaType.APPLICATION_JSON)
     @Retry(maxRetries = 3, delay = 200)
     @Timeout(2000)
-    GitHubUser getUser(@PathParam("username") String username);
+    GitHubUser getUser(@HeaderParam("Authorization") String token, @PathParam("username") String username);
 
     @GET
     @Path("/users/{username}/social_accounts")
     @Produces(MediaType.APPLICATION_JSON)
-    JsonNode getSocialAccounts(@PathParam("username") String username);
+    JsonNode getSocialAccounts(@HeaderParam("Authorization") String token, @PathParam("username") String username);
 
     @POST
     @Path("/graphql")
