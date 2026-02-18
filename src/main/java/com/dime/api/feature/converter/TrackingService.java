@@ -36,6 +36,9 @@ public class TrackingService {
     @ConfigProperty(name = "notion.version")
     String notionVersion;
 
+    @ConfigProperty(name = "notion.user-id")
+    Optional<String> assignedUserId;
+
     private boolean isEnabled() {
         return notionToken.isPresent() && trackingDbId.isPresent();
     }
@@ -82,6 +85,11 @@ public class TrackingService {
                         ? errorMessage.substring(0, MAX_ERROR_MESSAGE_LENGTH)
                         : errorMessage;
                 addRichTextProperty(properties, "Error Message", truncatedError);
+            }
+
+            // Add Assigned property with mention if userId is configured
+            if (assignedUserId.isPresent() && !assignedUserId.get().trim().isEmpty()) {
+                addMentionProperty(properties, "Assigned", assignedUserId.get());
             }
 
             ObjectNode page = objectMapper.createObjectNode();
@@ -164,6 +172,16 @@ public class TrackingService {
 
     private void addNumberProperty(ObjectNode properties, String name, Number value) {
         properties.putObject(name).put("number", value.doubleValue());
+    }
+
+    private void addMentionProperty(ObjectNode properties, String name, String userId) {
+        ObjectNode mentionWrapper = properties.putObject(name);
+        ArrayNode richTextArray = mentionWrapper.putArray("rich_text");
+        ObjectNode mentionPart = richTextArray.addObject();
+        mentionPart.put("type", "mention");
+        ObjectNode mention = mentionPart.putObject("mention");
+        mention.put("type", "user");
+        mention.putObject("user").put("id", userId);
     }
 
     private String bearerToken(String raw) {
