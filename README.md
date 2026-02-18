@@ -115,69 +115,40 @@ Run with coverage:
 mvn verify
 ```
 
-## 📡 API Endpoints
+## 📡 API Reference
 
-### Image-to-Calendar Converter
+A lightweight guide to the available endpoints for frontend integration.
 
-**POST** `/converter`
-- Converts images containing calendar events to .ics format
-- Request body (JSON):
-  ```json
-  {
-    "userId": "string",
-    "timeZone": "string (optional, e.g. \"America/New_York\")",
-    "currentDate": "string (optional, ISO-8601 date, e.g. \"2024-01-31\")",
-    "files": [
-      {
-        "dataUrl": "string (optional, data URL with base64 image data)",
-        "url": "string (optional, publicly accessible image URL)"
-      }
-    ]
-  }
-- Returns: JSON response with `icsContent` field containing the ICS calendar file
-- Includes quota checking and usage tracking
+### 🖼️ Converter & Quotas
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/converter` | Convert images to .ics format |
+| `GET` | `/converter/quota-status` | Get user quota (requires `userId` query param) |
+| `GET` | `/converter/statistics` | Get global usage statistics |
 
-### GitHub Endpoints
+### 📊 GitHub & CMS
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/github/user` | Fetch GitHub profile info |
+| `GET` | `/github/social` | Fetch social account links |
+| `GET` | `/github/commits` | Fetch monthly commit stats (`?months=N`) |
+| `GET` | `/notion/cms` | Fetch categorized CMS content |
 
-**GET** `/github/user`
-- Returns GitHub user profile information
-- Response: User object with profile details
+### 🔐 Admin (User Management)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/users` | List all user quota records |
+| `GET` | `/users/{userId}` | Get specific user quota |
+| `PATCH` | `/users/{userId}` | Update user quota (merge) |
+| `DELETE` | `/users/{userId}` | Remove user record |
 
-**GET** `/github/social`
-- Returns GitHub user's social accounts
-- Response: Array of social account links
-
-**GET** `/github/commits?months=12`
-- Returns commit statistics over specified months
-- Query param: `months` (default: 12)
-- Response: Array of commit data per month
-
-### Notion CMS
-
-**GET** `/notion/cms`
-- Fetches grouped content from Notion CMS database
-- Response: Map of content items grouped by category
-
-### Analytics
-
-**GET** `/statistics`
-- Returns usage statistics and analytics
-- Response: Statistics object with conversion metrics
-
-### Health & Documentation
-
-**GET** `/health`
-- Health check endpoint (liveness & readiness probes)
-- Response: Health status
-
-**GET** `/api-docs`
-- Interactive Swagger UI for API documentation
-
-**GET** `/api-schema`
-- OpenAPI schema definition
-
-**GET** `/`
-- Redirects to `/api-docs`
+### 🩺 System
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/health` | Health & Readiness check |
+| `GET` | `/api-docs` | Interactive Swagger UI |
+| `GET` | `/api-schema` | OpenAPI JSON schema |
+| `GET` | `/` | Redirect to API docs |
 
 ## 📝 Example Usage
 
