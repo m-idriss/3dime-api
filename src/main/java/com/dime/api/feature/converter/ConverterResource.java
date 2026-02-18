@@ -38,10 +38,8 @@ public class ConverterResource {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    @Operation(summary = "Convert images to calendar events",
-               description = "Uses AI to extract calendar events from images and convert them to ICS format")
-    @APIResponse(responseCode = "200", description = "Conversion successful",
-                content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ConverterResponse.class)))
+    @Operation(summary = "Convert images to calendar events", description = "Uses AI to extract calendar events from images and convert them to ICS format")
+    @APIResponse(responseCode = "200", description = "Conversion successful", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ConverterResponse.class)))
     @APIResponse(responseCode = "400", description = "Invalid request data")
     @APIResponse(responseCode = "422", description = "Processing error - valid input but conversion failed")
     @APIResponse(responseCode = "429", description = "Quota exceeded")
@@ -59,8 +57,8 @@ public class ConverterResource {
 
         // Check for valid file data
         boolean hasValidFile = request.files.stream()
-            .anyMatch(file -> (file.dataUrl != null && !file.dataUrl.trim().isEmpty()) ||
-                             (file.url != null && !file.url.trim().isEmpty()));
+                .anyMatch(file -> (file.dataUrl != null && !file.dataUrl.trim().isEmpty()) ||
+                        (file.url != null && !file.url.trim().isEmpty()));
         if (!hasValidFile) {
             throw new ValidationException("All provided files are empty. Please provide valid image data.");
         }
@@ -83,15 +81,16 @@ public class ConverterResource {
                 trackingService.logConversionError(userId, fileCount, "No events found in images",
                         System.currentTimeMillis() - startTime, domain);
                 throw new ProcessingException("No calendar events found in the provided images. " +
-                    "Please ensure the images contain clear calendar information.",
-                    Map.of("reason", "no_events_detected", "fileCount", fileCount));
+                        "Please ensure the images contain clear calendar information.",
+                        Map.of("reason", "no_events_detected", "fileCount", fileCount));
             }
 
             if (!isValidIcs(icsContent)) {
                 trackingService.logConversionError(userId, fileCount, "Generated ICS is invalid",
                         System.currentTimeMillis() - startTime, domain);
-                throw new ProcessingException("The AI generated invalid calendar data. Please try again with clearer images.",
-                    Map.of("reason", "invalid_ics_format", "fileCount", fileCount));
+                throw new ProcessingException(
+                        "The AI generated invalid calendar data. Please try again with clearer images.",
+                        Map.of("reason", "invalid_ics_format", "fileCount", fileCount));
             }
 
             // Success
@@ -113,24 +112,22 @@ public class ConverterResource {
     @GET
     @Path("/quotaStatus")
     @Produces(MediaType.APPLICATION_JSON)
-    @Operation(summary = "Get user quota status",
-               description = "Retrieves the current quota usage and plan information for a user")
-    @APIResponse(responseCode = "200", description = "Quota status retrieved successfully",
-                content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = UserQuota.class)))
+    @Operation(summary = "Get user quota status", description = "Retrieves the current quota usage and plan information for a user")
+    @APIResponse(responseCode = "200", description = "Quota status retrieved successfully", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = UserQuota.class)))
     @APIResponse(responseCode = "404", description = "User not found")
     @APIResponse(responseCode = "500", description = "Internal server error")
     public Response getQuotaStatus(@QueryParam("userId") @NotNull String userId) {
         log.info("GET /converter/quotaStatus endpoint called for user: {}", userId);
-        
+
         try {
             UserQuota userQuota = quotaService.getQuotaStatus(userId);
-            
+
             if (userQuota == null) {
                 return Response.status(Response.Status.NOT_FOUND)
                         .entity(Map.of("error", "User not found", "userId", userId))
                         .build();
             }
-            
+
             return Response.ok(userQuota).build();
         } catch (Exception e) {
             log.error("Error retrieving quota status for user {}: {}", userId, e.getMessage(), e);
@@ -147,8 +144,8 @@ public class ConverterResource {
         }
         if (origin != null) {
             try {
-                java.net.URL url = new java.net.URL(origin);
-                return url.getHost();
+                java.net.URI uri = new java.net.URI(origin);
+                return uri.getHost();
             } catch (Exception e) {
                 return "invalid-url";
             }
@@ -157,7 +154,11 @@ public class ConverterResource {
     }
 
     private boolean isValidIcs(String ics) {
-        return ics.startsWith("BEGIN:VCALENDAR") && ics.contains("BEGIN:VEVENT") && ics.endsWith("END:VCALENDAR");
+        if (ics == null)
+            return false;
+        String trimmed = ics.trim();
+        return trimmed.startsWith("BEGIN:VCALENDAR") && trimmed.contains("BEGIN:VEVENT")
+                && trimmed.endsWith("END:VCALENDAR");
     }
 
     private int countEvents(String ics) {

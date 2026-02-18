@@ -88,7 +88,7 @@ public class TrackingService {
             page.set("parent", parent);
             page.set("properties", properties);
 
-            notionClient.createPage("Bearer " + notionToken.get(), notionVersion, page);
+            notionClient.createPage(bearerToken(notionToken.get()), notionVersion, page);
             log.info("Logged usage event: {} for user {}", action, userId);
 
         } catch (Exception e) {
@@ -113,7 +113,7 @@ public class TrackingService {
             statusFilter.put("property", "Status");
             statusFilter.putObject("select").put("equals", "Success");
 
-            JsonNode response = notionClient.queryDatabase("Bearer " + notionToken.get(), notionVersion,
+            JsonNode response = notionClient.queryDatabase(bearerToken(notionToken.get()), notionVersion,
                     trackingDbId.get(), filter);
 
             int totalFileCount = 0;
@@ -164,5 +164,11 @@ public class TrackingService {
 
     private void addNumberProperty(ObjectNode properties, String name, Number value) {
         properties.putObject(name).put("number", value.doubleValue());
+    }
+
+    private String bearerToken(String raw) {
+        if (raw == null)
+            return null;
+        return raw.startsWith("Bearer ") ? raw : "Bearer " + raw;
     }
 }

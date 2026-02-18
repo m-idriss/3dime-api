@@ -56,7 +56,7 @@ public class NotionQuotaService {
             filter.put("property", "User ID");
             filter.putObject("title").put("equals", userId);
 
-            String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
+            String authToken = bearerToken(token);
             JsonNode response = notionClient.queryDatabase(authToken, version, quotaDbId.get(), query);
 
             if (response.has("results") && response.get("results").isArray() && response.get("results").size() > 0) {
@@ -96,7 +96,7 @@ public class NotionQuotaService {
             // Plan (select property)
             properties.putObject("Plan").putObject("select").put("name", plan.name());
 
-            String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
+            String authToken = bearerToken(token);
 
             if (pageId != null) {
                 // Update existing page
@@ -133,7 +133,7 @@ public class NotionQuotaService {
             filter.put("property", "User ID");
             filter.putObject("title").put("equals", userId);
 
-            String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
+            String authToken = bearerToken(token);
             JsonNode response = notionClient.queryDatabase(authToken, version, quotaDbId.get(), query);
 
             if (!response.has("results") || response.get("results").size() == 0) {
@@ -164,6 +164,12 @@ public class NotionQuotaService {
             log.warn("Failed to read from Notion for user {}", userId, e);
             return null;
         }
+    }
+
+    private String bearerToken(String raw) {
+        if (raw == null)
+            return null;
+        return raw.startsWith("Bearer ") ? raw : "Bearer " + raw;
     }
 
     public record QuotaData(long usageCount, Instant lastReset, PlanType plan) {

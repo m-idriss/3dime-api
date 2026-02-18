@@ -59,7 +59,7 @@ public class NotionService {
             sort.put("property", "Rank");
             sort.put("direction", "ascending");
 
-            String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
+            String authToken = bearerToken(token);
             JsonNode response = notionClient.queryDatabase(authToken, version, databaseId, query);
 
             Map<String, List<CmsItem>> groupedContent = new HashMap<>();
@@ -91,12 +91,12 @@ public class NotionService {
                 errorBody = "Unable to read error response";
             }
             log.error("Notion API error: {} - Status: {}", errorBody, e.getResponse().getStatus(), e);
-            throw new ExternalServiceException("Notion", 
-                "Notion API returned error (Status " + e.getResponse().getStatus() + "): " + errorBody, e);
+            throw new ExternalServiceException("Notion",
+                    "Notion API returned error (Status " + e.getResponse().getStatus() + "): " + errorBody, e);
         } catch (Exception e) {
             log.error("Failed to fetch CMS content from Notion", e);
-            throw new ExternalServiceException("Notion", 
-                "Failed to fetch CMS content from Notion: " + e.getMessage(), e);
+            throw new ExternalServiceException("Notion",
+                    "Failed to fetch CMS content from Notion: " + e.getMessage(), e);
         }
     }
 
@@ -131,6 +131,12 @@ public class NotionService {
             return prop.get("select").get("name").asText(defaultValue);
         }
         return defaultValue;
+    }
+
+    private String bearerToken(String raw) {
+        if (raw == null)
+            return null;
+        return raw.startsWith("Bearer ") ? raw : "Bearer " + raw;
     }
 
     public record CmsItem(String name, String url, String description, long rank, String category) {
