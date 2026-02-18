@@ -1,6 +1,7 @@
 package com.dime.api.feature.converter;
 
 import jakarta.inject.Inject;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -67,23 +68,43 @@ public class UserQuotaResource {
         return Response.noContent().build();
     }
 
-    @POST
+    @GET
     @Path("/sync-notion")
-    @Operation(summary = "Sync to Notion", description = "Triggers a synchronization of all user quotas from Firestore to Notion. Optionally provide a list of user IDs to sync only those users.")
+    @Operation(summary = "Sync all to Notion", description = "Triggers a full synchronization of all user quotas from Firestore to Notion via GET.")
     @APIResponse(responseCode = "202", description = "Synchronization started")
-    public Response syncToNotion(List<String> userIds) {
-        log.info("POST /users/sync-notion called with {} userIds", userIds == null ? 0 : userIds.size());
-        quotaService.syncToNotion(userIds);
+    public Response syncToNotion() {
+        log.info("GET /users/sync-notion called (full sync)");
+        quotaService.syncToNotion(null);
         return Response.accepted().build();
     }
 
-    @POST
+    @GET
     @Path("/sync-firebase")
-    @Operation(summary = "Sync from Notion", description = "Triggers a synchronization of user quotas from Notion back to Firestore. Optionally provide a list of user IDs to sync only those users.")
+    @Operation(summary = "Sync all from Notion", description = "Triggers a full synchronization of user quotas from Notion back to Firestore via GET.")
     @APIResponse(responseCode = "202", description = "Synchronization started")
-    public Response syncFromNotion(List<String> userIds) {
-        log.info("POST /users/sync-firebase called with {} userIds", userIds == null ? 0 : userIds.size());
-        quotaService.syncFromNotion(userIds);
+    public Response syncFromNotion() {
+        log.info("GET /users/sync-firebase called (full sync)");
+        quotaService.syncFromNotion(null);
+        return Response.accepted().build();
+    }
+
+    @GET
+    @Path("/sync-notion-single")
+    @Operation(summary = "Push single user to Notion", description = "Triggers a synchronization of a specific user's quota from Firestore to Notion via GET")
+    @APIResponse(responseCode = "202", description = "Synchronization started")
+    public Response syncSingleToNotion(@QueryParam("userId") @NotNull String userId) {
+        log.info("GET /users/sync-notion-single called for {}", userId);
+        quotaService.syncToNotion(List.of(userId));
+        return Response.accepted().build();
+    }
+
+    @GET
+    @Path("/sync-firebase-single")
+    @Operation(summary = "Pull single user from Notion", description = "Triggers a synchronization of a specific user's quota from Notion back to Firestore via GET")
+    @APIResponse(responseCode = "202", description = "Synchronization started")
+    public Response syncSingleFromNotion(@QueryParam("userId") @NotNull String userId) {
+        log.info("GET /users/sync-firebase-single called for {}", userId);
+        quotaService.syncFromNotion(List.of(userId));
         return Response.accepted().build();
     }
 }
