@@ -1,6 +1,7 @@
 package com.dime.api.feature.github;
 
 import com.dime.api.feature.shared.exception.ExternalServiceException;
+import io.quarkus.cache.CacheResult;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.WebApplicationException;
@@ -35,6 +36,7 @@ public class GitHubService {
   @Inject
   ObjectMapper objectMapper;
 
+  @CacheResult(cacheName = "github-user-cache")
   public GitHubUser getUserInfo() {
     log.info("Fetching GitHub user info for: {}", username);
 
@@ -44,29 +46,31 @@ public class GitHubService {
       return user;
     } catch (WebApplicationException e) {
       log.error("Failed to fetch GitHub user info for: {}", username, e);
-      throw new ExternalServiceException("GitHub", 
-        "Failed to fetch user information from GitHub API. Status: " + e.getResponse().getStatus(), e);
+      throw new ExternalServiceException("GitHub",
+          "Failed to fetch user information from GitHub API. Status: " + e.getResponse().getStatus(), e);
     } catch (Exception e) {
       log.error("Unexpected error fetching GitHub user info for: {}", username, e);
-      throw new ExternalServiceException("GitHub", 
-        "Unexpected error occurred while calling GitHub API: " + e.getMessage(), e);
+      throw new ExternalServiceException("GitHub",
+          "Unexpected error occurred while calling GitHub API: " + e.getMessage(), e);
     }
   }
 
+  @CacheResult(cacheName = "github-social-cache")
   public JsonNode getSocialAccounts() {
     try {
       return gitHubClient.getSocialAccounts(username);
     } catch (WebApplicationException e) {
       log.error("Failed to fetch GitHub social accounts for: {}", username, e);
-      throw new ExternalServiceException("GitHub", 
-        "Failed to fetch social accounts from GitHub API. Status: " + e.getResponse().getStatus(), e);
+      throw new ExternalServiceException("GitHub",
+          "Failed to fetch social accounts from GitHub API. Status: " + e.getResponse().getStatus(), e);
     } catch (Exception e) {
       log.error("Unexpected error fetching GitHub social accounts for: {}", username, e);
-      throw new ExternalServiceException("GitHub", 
-        "Unexpected error occurred while calling GitHub social accounts API: " + e.getMessage(), e);
+      throw new ExternalServiceException("GitHub",
+          "Unexpected error occurred while calling GitHub social accounts API: " + e.getMessage(), e);
     }
   }
 
+  @CacheResult(cacheName = "github-commits-cache")
   public List<Map<String, Object>> getCommits(int months) {
     // Validate months parameter
     if (months < 1 || months > 60) {
@@ -134,18 +138,18 @@ public class GitHubService {
       }
 
       return commits;
-      
+
     } catch (WebApplicationException e) {
       log.error("Failed to fetch GitHub commits for: {}", username, e);
-      throw new ExternalServiceException("GitHub", 
-        "Failed to fetch commit statistics from GitHub GraphQL API. Status: " + e.getResponse().getStatus(), e);
+      throw new ExternalServiceException("GitHub",
+          "Failed to fetch commit statistics from GitHub GraphQL API. Status: " + e.getResponse().getStatus(), e);
     } catch (Exception e) {
       if (e instanceof ExternalServiceException) {
         throw e; // Re-throw our own exception
       }
       log.error("Unexpected error fetching GitHub commits for: {}", username, e);
-      throw new ExternalServiceException("GitHub", 
-        "Unexpected error occurred while calling GitHub GraphQL API: " + e.getMessage(), e);
+      throw new ExternalServiceException("GitHub",
+          "Unexpected error occurred while calling GitHub GraphQL API: " + e.getMessage(), e);
     }
   }
 }

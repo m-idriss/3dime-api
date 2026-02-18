@@ -1,6 +1,7 @@
 package com.dime.api.feature.notion;
 
 import com.dime.api.feature.shared.exception.ExternalServiceException;
+import io.quarkus.cache.CacheResult;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -36,6 +37,7 @@ public class NotionService {
     @Inject
     ObjectMapper objectMapper;
 
+    @CacheResult(cacheName = "notion-cms-cache")
     public Map<String, List<CmsItem>> getCmsContent() {
         if (databaseId == null || databaseId.trim().isEmpty()) {
             log.warn("Notion CMS database ID not configured (notion.cms.database-id). Returning empty content.");
