@@ -9,8 +9,10 @@ import lombok.extern.slf4j.Slf4j;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 @Slf4j
 @ApplicationScoped
@@ -30,6 +32,9 @@ public class QuotaService {
     NotionQuotaService notionQuotaService;
 
     public record QuotaCheckResult(boolean allowed, long remaining, long limit, PlanType plan) {
+    }
+
+    public record UserQuotaWrapper(String userId, UserQuota quota) {
     }
 
     public QuotaCheckResult checkQuota(String userId) {
@@ -165,5 +170,36 @@ public class QuotaService {
         ZonedDateTime now = Instant.now().atZone(ZoneId.of("UTC"));
 
         return periodDate.getMonth() != now.getMonth() || periodDate.getYear() != now.getYear();
+    }
+
+    public List<UserQuotaWrapper> findAll() {
+        try {
+            return firestore.collection(COLLECTION_NAME).get().get().getDocuments()
+                    .stream()
+                    .map(doc -> new UserQuotaWrapper(doc.getId(), doc.toObject(UserQuota.class)))
+                    .collect(Collectors.toList());
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Error fetching all user quotas", e);
+            return List.of();
+        }
+    }
+
+    public void updateQuota(String userId, UserQuota quota) {
+        try {
+            quota.updatedAt = Timestamp.now();
+            firestore.collection(COLLECTION_NAME).document(userId).set(quota, SetOptions.merge()).get();
+            log.info("Updated quota for user {}", userId);
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Error updating quota for user {}", userId, e);
+        }
+    }
+
+    public void deleteQuota(String userId) {
+        try {
+            firestore.collection(COLLECTION_NAME).document(userId).delete().get();
+            log.info("Deleted quota for user {}", userId);
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Error deleting quota for user {}", userId, e);
+        }
     }
 }
