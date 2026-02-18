@@ -57,7 +57,12 @@ public class GlobalExceptionMapper implements ExceptionMapper<Throwable> {
                         .build();
             }
 
-            log.warn("Web application exception on {}: {} - {}", path, status, message);
+            // Silence 404s for common browser assets (favicon, apple-touch-icons, etc.)
+            if (status == 404 && (path.endsWith(".ico") || path.endsWith(".png") || path.endsWith(".xml"))) {
+                log.debug("Asset not found (silenced): {}", path);
+            } else {
+                log.warn("Web application exception on {}: {} - {}", path, status, message);
+            }
             ErrorResponse errorResponse = new ErrorResponse(
                     "HTTP Error",
                     message != null ? message : "HTTP error occurred",

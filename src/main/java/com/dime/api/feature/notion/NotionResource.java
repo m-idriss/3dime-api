@@ -6,6 +6,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.openapi.annotations.extensions.Extension;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
@@ -17,6 +18,7 @@ import java.util.Map;
 
 @Path("/notion")
 @Tag(name = "portfolio", description = "Notion CMS content management")
+@Extension(name = "x-smallrye-profile-public", value = "")
 public class NotionResource {
 
     @Inject
