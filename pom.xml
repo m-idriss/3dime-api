@@ -106,7 +106,11 @@
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-elytron-security-properties-file</artifactId>
     </dependency>
-    <dependency>
+      <dependency>
+          <groupId>io.quarkus</groupId>
+          <artifactId>quarkus-logging-json</artifactId>
+      </dependency>
+      <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-junit</artifactId>
       <scope>test</scope>
