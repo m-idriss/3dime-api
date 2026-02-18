@@ -12,6 +12,7 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.microprofile.openapi.annotations.extensions.Extension;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
@@ -24,6 +25,7 @@ import java.util.Map;
 @Slf4j
 @Path("/converter")
 @Tag(name = "converter", description = "AI-powered image to calendar conversion and quota status")
+@Extension(name = "x-smallrye-profile-public", value = "")
 public class ConverterResource {
 
     @Inject
