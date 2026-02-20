@@ -8,19 +8,19 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @NoArgsConstructor
 @Schema(description = "Response from image to calendar conversion")
 public class ConverterResponse {
-    
-    @Schema(description = "Whether the conversion was successful", example = "true")
+
+    @Schema(description = "Whether the conversion was successful", examples = "true")
     public boolean success;
-    
-    @Schema(description = "The generated ICS calendar content", example = "BEGIN:VCALENDAR...")
+
+    @Schema(description = "The generated ICS calendar content", examples = "BEGIN:VCALENDAR...")
     public String icsContent;
-    
+
     @Schema(description = "Error message if conversion failed")
     public String error;
-    
+
     @Schema(description = "Detailed error description")
     public String message;
-    
+
     @Schema(description = "Additional error details")
     public Object details;
 

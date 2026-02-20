@@ -55,7 +55,7 @@ public class ConverterIntegrationTest {
     public void testConverterEndpointWithInvalidFileData() {
         String invalidRequest = """
             {
-                "userId": "test-user", 
+                "userId": "test-user",
                 "files": [
                     {
                         "dataUrl": "",
@@ -80,7 +80,7 @@ public class ConverterIntegrationTest {
     public void testQuotaStatusEndpointWithValidUser() {
         given()
             .param("userId", "test-user")
-            .when().get("/converter/quotaStatus")
+            .when().get("/converter/quota-status")
             .then()
                 .statusCode(anyOf(is(200), is(404))) // User may or may not exist
                 .body(notNullValue());
@@ -89,7 +89,7 @@ public class ConverterIntegrationTest {
     @Test 
     public void testQuotaStatusEndpointWithoutUserId() {
         given()
-            .when().get("/converter/quotaStatus")
+            .when().get("/converter/quota-status")
             .then()
                 .statusCode(400); // Bad Request due to missing required parameter
     }
@@ -98,7 +98,7 @@ public class ConverterIntegrationTest {
     public void testQuotaStatusEndpointWithEmptyUserId() {
         given()
             .param("userId", "")
-            .when().get("/converter/quotaStatus")
+            .when().get("/converter/quota-status")
             .then()
                 .statusCode(400); // Bad Request due to empty required parameter
     }
