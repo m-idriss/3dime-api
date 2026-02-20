@@ -154,25 +154,25 @@ public class TrackingService {
     public record Statistics(int fileCount, int eventCount) {
     }
 
-    private void addTitleProperty(ObjectNode properties, String name, String content) {
+    void addTitleProperty(ObjectNode properties, String name, String content) {
         ObjectNode title = properties.putObject(name).putArray("title").addObject();
         title.putObject("text").put("content", content);
     }
 
-    private void addRichTextProperty(ObjectNode properties, String name, String content) {
+    void addRichTextProperty(ObjectNode properties, String name, String content) {
         ObjectNode richText = properties.putObject(name).putArray("rich_text").addObject();
         richText.putObject("text").put("content", content);
     }
 
-    private void addDateProperty(ObjectNode properties, String name, String date) {
+    void addDateProperty(ObjectNode properties, String name, String date) {
         properties.putObject(name).putObject("date").put("start", date);
     }
 
-    private void addSelectProperty(ObjectNode properties, String name, String option) {
+    void addSelectProperty(ObjectNode properties, String name, String option) {
         properties.putObject(name).putObject("select").put("name", option);
     }
 
-    private void addNumberProperty(ObjectNode properties, String name, Number value) {
+    void addNumberProperty(ObjectNode properties, String name, Number value) {
         properties.putObject(name).put("number", value.doubleValue());
     }
 

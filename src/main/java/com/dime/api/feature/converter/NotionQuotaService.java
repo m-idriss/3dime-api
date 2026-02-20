@@ -131,7 +131,7 @@ public class NotionQuotaService {
         return results;
     }
 
-    private String getTitleContent(JsonNode property) {
+    String getTitleContent(JsonNode property) {
         if (property != null && property.has("title") && property.get("title").isArray()
                 && property.get("title").size() > 0) {
             return property.get("title").get(0).get("text").get("content").asText();
@@ -139,21 +139,21 @@ public class NotionQuotaService {
         return null;
     }
 
-    private long getNumberContent(JsonNode property) {
+    long getNumberContent(JsonNode property) {
         if (property != null && property.has("number")) {
             return property.get("number").asLong();
         }
         return 0;
     }
 
-    private String getSelectContent(JsonNode property) {
+    String getSelectContent(JsonNode property) {
         if (property != null && property.has("select") && !property.get("select").isNull()) {
             return property.get("select").get("name").asText();
         }
         return null;
     }
 
-    private String getDateContent(JsonNode property) {
+    String getDateContent(JsonNode property) {
         if (property != null && property.has("date") && !property.get("date").isNull()) {
             return property.get("date").get("start").asText();
         }
@@ -177,21 +177,21 @@ public class NotionQuotaService {
         }
     }
 
-    private void addTitleProperty(ObjectNode properties, String name, String content) {
+    void addTitleProperty(ObjectNode properties, String name, String content) {
         ObjectNode titleWrapper = properties.putObject(name);
         ArrayNode titleArray = titleWrapper.putArray("title");
         titleArray.addObject().putObject("text").put("content", content);
     }
 
-    private void addNumberProperty(ObjectNode properties, String name, Number value) {
+    void addNumberProperty(ObjectNode properties, String name, Number value) {
         properties.putObject(name).put("number", value.doubleValue());
     }
 
-    private void addDateProperty(ObjectNode properties, String name, String date) {
+    void addDateProperty(ObjectNode properties, String name, String date) {
         properties.putObject(name).putObject("date").put("start", date);
     }
 
-    private void addSelectProperty(ObjectNode properties, String name, String option) {
+    void addSelectProperty(ObjectNode properties, String name, String option) {
         properties.putObject(name).putObject("select").put("name", option);
     }
 

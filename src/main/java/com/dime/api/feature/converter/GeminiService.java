@@ -135,7 +135,7 @@ public class GeminiService {
         throw new ProcessingException("Gemini API returned unexpected response format");
     }
 
-    private String getAccessToken() throws IOException {
+    String getAccessToken() throws IOException {
         if (cachedCredentials == null) {
             synchronized (this) {
                 if (cachedCredentials == null) {
@@ -147,11 +147,7 @@ public class GeminiService {
                                 .createScoped(
                                         Collections.singleton("https://www.googleapis.com/auth/generative-language"));
                     } else {
-                        // Fallback to application default credentials
-                        log.debug("Using application default credentials");
-                        cachedCredentials = GoogleCredentials.getApplicationDefault()
-                                .createScoped(
-                                        Collections.singleton("https://www.googleapis.com/auth/generative-language"));
+                        throw new IOException("Missing Gemini API credentials: apiKeyJson is empty");
                     }
                 }
             }
@@ -161,7 +157,7 @@ public class GeminiService {
         return cachedCredentials.getAccessToken().getTokenValue();
     }
 
-    private String cleanIcs(String text) {
+    String cleanIcs(String text) {
         if (text == null)
             return null;
         String cleaned = text.replaceAll("```(?:ics)?\\s*[\\r\\n]|```", "").trim();
