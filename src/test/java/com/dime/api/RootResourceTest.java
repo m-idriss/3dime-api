@@ -10,12 +10,19 @@ import static org.hamcrest.Matchers.endsWith;
 public class RootResourceTest {
 
     @Test
-    public void testRootPathRedirectsToApiDocs() {
+    public void testRootPathRedirectsToLoginPage() {
         given()
             .redirects().follow(false)
             .when().get("/")
             .then()
-                .statusCode(307)
-                .header("Location", endsWith("/api-docs"));
+                .header("Location", endsWith("/login.html"));
+    }
+    @Test
+    public void testApiPathRedirectsToLoginPageWhenNotLoggedIn() {
+        given()
+            .redirects().follow(false)
+            .when().get("/api-docs")
+            .then()
+                .header("Location", endsWith("/login.html"));
     }
 }

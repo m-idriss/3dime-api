@@ -4,6 +4,7 @@ import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.*;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Instant;
@@ -37,7 +38,7 @@ public class QuotaService {
     public record UserQuotaWrapper(String userId, UserQuota quota) {
     }
 
-    public QuotaCheckResult checkQuota(String userId) {
+    public QuotaCheckResult checkQuota(@NonNull String userId) {
         try {
             DocumentSnapshot document = firestore.collection(COLLECTION_NAME).document(userId).get().get();
 
@@ -54,7 +55,7 @@ public class QuotaService {
 
             // Check for new month
             if (isNewMonth(userQuota.periodStart)) {
-                resetQuota(userId, userQuota.getPlanType());
+                resetQuota(userId);
                 userQuota.quotaUsed = 0;
             }
 
@@ -71,7 +72,7 @@ public class QuotaService {
         }
     }
 
-    public void incrementUsage(String userId) {
+    public void incrementUsage(@NonNull String userId) {
         try {
             DocumentReference docRef = firestore.collection(COLLECTION_NAME).document(userId);
 
@@ -111,7 +112,7 @@ public class QuotaService {
         }
     }
 
-    public UserQuota getQuotaStatus(String userId) {
+    public UserQuota getQuotaStatus(@NonNull String userId) {
         try {
             DocumentSnapshot document = firestore.collection(COLLECTION_NAME).document(userId).get().get();
             if (document.exists()) {
@@ -127,7 +128,7 @@ public class QuotaService {
         return null;
     }
 
-    private UserQuota createUser(String userId) throws ExecutionException, InterruptedException {
+    private UserQuota createUser(@NonNull String userId) throws ExecutionException, InterruptedException {
         Timestamp now = Timestamp.now();
         UserQuota newUser = new UserQuota(
                 DEFAULT_PLAN,
@@ -141,7 +142,7 @@ public class QuotaService {
         return newUser;
     }
 
-    private void createUserInTransaction(Transaction transaction, DocumentReference docRef) {
+    private void createUserInTransaction(@NonNull Transaction transaction, @NonNull DocumentReference docRef) {
         Timestamp now = Timestamp.now();
         UserQuota newUser = new UserQuota(
                 DEFAULT_PLAN,
@@ -153,9 +154,7 @@ public class QuotaService {
         transaction.set(docRef, newUser);
     }
 
-    private void resetQuota(String userId, PlanType plan) {
-        if (userId == null)
-            return;
+    private void resetQuota(@NonNull String userId) {
         Timestamp now = Timestamp.now();
         firestore.collection(COLLECTION_NAME).document(userId).update(
                 "quotaUsed", 0,
@@ -186,7 +185,7 @@ public class QuotaService {
         }
     }
 
-    public void updateQuota(String userId, UserQuota quota) {
+    public void updateQuota(@NonNull String userId, UserQuota quota) {
         try {
             quota.updatedAt = Timestamp.now();
             firestore.collection(COLLECTION_NAME).document(userId).set(quota, SetOptions.merge()).get();
@@ -208,7 +207,7 @@ public class QuotaService {
         }
     }
 
-    public void deleteQuota(String userId) {
+    public void deleteQuota(@NonNull String userId) {
         try {
             firestore.collection(COLLECTION_NAME).document(userId).delete().get();
             log.info("Deleted quota for user {}", userId);
@@ -234,7 +233,7 @@ public class QuotaService {
         if (userIds != null && !userIds.isEmpty()) {
             allQuotas = allQuotas.stream()
                     .filter(wrapper -> userIds.contains(wrapper.userId()))
-                    .collect(Collectors.toList());
+                    .toList();
         }
 
         for (UserQuotaWrapper wrapper : allQuotas) {
@@ -263,7 +262,7 @@ public class QuotaService {
         if (userIds != null && !userIds.isEmpty()) {
             notionData = notionData.stream()
                     .filter(data -> userIds.contains(data.userId()))
-                    .collect(Collectors.toList());
+                    .toList();
         }
 
         for (NotionQuotaService.QuotaData data : notionData) {
@@ -276,7 +275,7 @@ public class QuotaService {
         log.info("Completed quota sync FROM Notion for {} records", notionData.size());
     }
 
-    private void updateQuotaFromNotion(NotionQuotaService.QuotaData data) {
+    private void updateQuotaFromNotion(@NonNull NotionQuotaService.QuotaData data) {
         try {
             DocumentReference docRef = firestore.collection(COLLECTION_NAME).document(data.userId());
             Timestamp periodStart = Timestamp.ofTimeSecondsAndNanos(data.lastReset().getEpochSecond(),
