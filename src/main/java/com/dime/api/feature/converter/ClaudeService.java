@@ -36,10 +36,10 @@ public class ClaudeService {
     String modelName;
 
     @ConfigProperty(name = "claude.base-message")
-    String baseMessageTemplate;
+    Optional<String> baseMessageTemplate;
 
     @ConfigProperty(name = "claude.system-prompt")
-    String systemPrompt;
+    Optional<String> systemPrompt;
 
     @ConfigProperty(name = "claude.api.key")
     Optional<String> apiKey;
@@ -50,14 +50,24 @@ public class ClaudeService {
             throw new ExternalServiceException("Claude", "Missing Claude API key (CLAUDE_API_KEY)");
         }
 
+        String resolvedBaseMessage = baseMessageTemplate
+                .filter(s -> !s.isBlank())
+                .orElseThrow(() -> new ExternalServiceException("Claude",
+                        "Missing required config: claude.base-message (set CLAUDE_BASE_MESSAGE env var)"));
+
+        String resolvedSystemPrompt = systemPrompt
+                .filter(s -> !s.isBlank())
+                .orElseThrow(() -> new ExternalServiceException("Claude",
+                        "Missing required config: claude.system-prompt (set CLAUDE_SYSTEM_PROMPT env var)"));
+
         String today = request.currentDate != null ? request.currentDate : java.time.LocalDate.now().toString();
         String tz = request.timeZone != null ? request.timeZone : "UTC";
-        String baseMessage = baseMessageTemplate.replace("{today}", today).replace("{tz}", tz);
+        String baseMessage = resolvedBaseMessage.replace("{today}", today).replace("{tz}", tz);
 
         ObjectNode requestBody = objectMapper.createObjectNode();
         requestBody.put("model", modelName);
         requestBody.put("max_tokens", 8192);
-        requestBody.put("system", systemPrompt);
+        requestBody.put("system", resolvedSystemPrompt);
 
         ArrayNode messages = requestBody.putArray("messages");
         ObjectNode userMessage = messages.addObject();
