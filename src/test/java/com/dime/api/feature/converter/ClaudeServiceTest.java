@@ -28,8 +28,8 @@ public class ClaudeServiceTest {
         service.objectMapper = objectMapper;
         service.apiKey = Optional.of("test-api-key");
         service.modelName = "claude-3-5-sonnet-20241022";
-        service.baseMessageTemplate = "Convert these images to ICS. Today is {today}, timezone is {tz}.";
-        service.systemPrompt = "You are a calendar assistant.";
+        service.baseMessageTemplate = Optional.of("Convert these images to ICS. Today is {today}, timezone is {tz}.");
+        service.systemPrompt = Optional.of("You are a calendar assistant.");
     }
 
     // --- cleanIcs ---

@@ -129,8 +129,11 @@ public class GeminiService {
             }
 
             if (candidate.has("content") && candidate.get("content").has("parts")) {
-                String text = candidate.get("content").get("parts").get(0).get("text").asText();
-                return cleanIcs(text);
+                JsonNode responseParts = candidate.get("content").get("parts");
+                if (responseParts.size() > 0 && responseParts.get(0).has("text")) {
+                    String text = responseParts.get(0).get("text").asText();
+                    return cleanIcs(text);
+                }
             }
         }
 

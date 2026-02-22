@@ -35,11 +35,11 @@ public class ClaudeService {
     @ConfigProperty(name = "claude.model", defaultValue = "claude-3-5-sonnet-20241022")
     String modelName;
 
-    @ConfigProperty(name = "gemini.base-message")
-    String baseMessageTemplate;
+    @ConfigProperty(name = "claude.base-message")
+    Optional<String> baseMessageTemplate;
 
-    @ConfigProperty(name = "gemini.system-prompt")
-    String systemPrompt;
+    @ConfigProperty(name = "claude.system-prompt")
+    Optional<String> systemPrompt;
 
     @ConfigProperty(name = "claude.api.key")
     Optional<String> apiKey;
@@ -50,14 +50,24 @@ public class ClaudeService {
             throw new ExternalServiceException("Claude", "Missing Claude API key (CLAUDE_API_KEY)");
         }
 
+        String resolvedBaseMessage = baseMessageTemplate
+                .filter(s -> !s.isBlank())
+                .orElseThrow(() -> new ExternalServiceException("Claude",
+                        "Missing required config: claude.base-message (set CLAUDE_BASE_MESSAGE env var)"));
+
+        String resolvedSystemPrompt = systemPrompt
+                .filter(s -> !s.isBlank())
+                .orElseThrow(() -> new ExternalServiceException("Claude",
+                        "Missing required config: claude.system-prompt (set CLAUDE_SYSTEM_PROMPT env var)"));
+
         String today = request.currentDate != null ? request.currentDate : java.time.LocalDate.now().toString();
         String tz = request.timeZone != null ? request.timeZone : "UTC";
-        String baseMessage = baseMessageTemplate.replace("{today}", today).replace("{tz}", tz);
+        String baseMessage = resolvedBaseMessage.replace("{today}", today).replace("{tz}", tz);
 
         ObjectNode requestBody = objectMapper.createObjectNode();
         requestBody.put("model", modelName);
         requestBody.put("max_tokens", 8192);
-        requestBody.put("system", systemPrompt);
+        requestBody.put("system", resolvedSystemPrompt);
 
         ArrayNode messages = requestBody.putArray("messages");
         ObjectNode userMessage = messages.addObject();
@@ -115,8 +125,11 @@ public class ClaudeService {
         }
 
         if (response.has("content") && response.get("content").size() > 0) {
-            String text = response.get("content").get(0).get("text").asText();
-            return cleanIcs(text);
+            JsonNode firstContent = response.get("content").get(0);
+            if (firstContent != null && firstContent.has("text")) {
+                String text = firstContent.get("text").asText();
+                return cleanIcs(text);
+            }
         }
 
         log.error("Claude response did not contain expected content: {}", response.toString());

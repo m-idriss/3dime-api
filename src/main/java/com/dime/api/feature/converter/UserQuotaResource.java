@@ -70,42 +70,42 @@ public class UserQuotaResource {
         return Response.noContent().build();
     }
 
-    @GET
+    @POST
     @Path("/sync-notion")
-    @Operation(summary = "Sync all to Notion", description = "Triggers a full synchronization of all user quotas from Firestore to Notion via GET.")
+    @Operation(summary = "Sync all to Notion", description = "Triggers a full synchronization of all user quotas from Firestore to Notion.")
     @APIResponse(responseCode = "202", description = "Synchronization started")
     public Response syncToNotion() {
-        log.info("GET /users/sync-notion called (full sync)");
+        log.info("POST /users/sync-notion called (full sync)");
         quotaService.syncToNotion(null);
         return Response.accepted().build();
     }
 
-    @GET
+    @POST
     @Path("/sync-firebase")
-    @Operation(summary = "Sync all from Notion", description = "Triggers a full synchronization of user quotas from Notion back to Firestore via GET.")
+    @Operation(summary = "Sync all from Notion", description = "Triggers a full synchronization of user quotas from Notion back to Firestore.")
     @APIResponse(responseCode = "202", description = "Synchronization started")
     public Response syncFromNotion() {
-        log.info("GET /users/sync-firebase called (full sync)");
+        log.info("POST /users/sync-firebase called (full sync)");
         quotaService.syncFromNotion(null);
         return Response.accepted().build();
     }
 
-    @GET
+    @POST
     @Path("/sync-notion-single")
-    @Operation(summary = "Push single user to Notion", description = "Triggers a synchronization of a specific user's quota from Firestore to Notion via GET")
+    @Operation(summary = "Push single user to Notion", description = "Triggers a synchronization of a specific user's quota from Firestore to Notion")
     @APIResponse(responseCode = "202", description = "Synchronization started")
     public Response syncSingleToNotion(@QueryParam("userId") @NotNull String userId) {
-        log.info("GET /users/sync-notion-single called for {}", userId);
+        log.info("POST /users/sync-notion-single called for {}", userId);
         quotaService.syncToNotion(List.of(userId));
         return Response.accepted().build();
     }
 
-    @GET
+    @POST
     @Path("/sync-firebase-single")
-    @Operation(summary = "Pull single user from Notion", description = "Triggers a synchronization of a specific user's quota from Notion back to Firestore via GET")
+    @Operation(summary = "Pull single user from Notion", description = "Triggers a synchronization of a specific user's quota from Notion back to Firestore")
     @APIResponse(responseCode = "202", description = "Synchronization started")
     public Response syncSingleFromNotion(@QueryParam("userId") @NotNull String userId) {
-        log.info("GET /users/sync-firebase-single called for {}", userId);
+        log.info("POST /users/sync-firebase-single called for {}", userId);
         quotaService.syncFromNotion(List.of(userId));
         return Response.accepted().build();
     }
