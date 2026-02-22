@@ -3,9 +3,11 @@ package com.dime.api.feature.converter;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.quarkus.cache.CacheResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.dime.api.feature.notion.NotionClient;
+import com.dime.api.feature.shared.BearerTokenUtil;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -97,7 +99,7 @@ public class TrackingService {
             page.set("parent", parent);
             page.set("properties", properties);
 
-            notionClient.createPage(bearerToken(notionToken.get()), notionVersion, page);
+            notionClient.createPage(BearerTokenUtil.ensureBearer(notionToken.get()), notionVersion, page);
             log.info("Logged usage event: {} for user {}", action, userId);
 
         } catch (Exception e) {
@@ -123,7 +125,7 @@ public class TrackingService {
             statusFilter.put("property", "Status");
             statusFilter.putObject("select").put("equals", "Success");
 
-            JsonNode response = notionClient.queryDatabase(bearerToken(notionToken.get()), notionVersion,
+            JsonNode response = notionClient.queryDatabase(BearerTokenUtil.ensureBearer(notionToken.get()), notionVersion,
                     trackingDbId.get(), filter);
 
             int totalFileCount = 0;
@@ -143,6 +145,7 @@ public class TrackingService {
                 }
             }
 
+            log.info("Fetched statistics from Notion: fileCount={}, eventCount={}", totalFileCount, totalEventCount);
             return new Statistics(totalFileCount, totalEventCount);
 
         } catch (Exception e) {
@@ -151,7 +154,10 @@ public class TrackingService {
         }
     }
 
-    public record Statistics(int fileCount, int eventCount) {
+    @Schema(description = "Global conversion statistics aggregated from Notion tracking database")
+    public record Statistics(
+            @Schema(description = "Total number of image files processed in successful conversions") int fileCount,
+            @Schema(description = "Total number of calendar events generated in successful conversions") int eventCount) {
     }
 
     void addTitleProperty(ObjectNode properties, String name, String content) {
@@ -186,9 +192,4 @@ public class TrackingService {
         mention.putObject("user").put("id", userId);
     }
 
-    private String bearerToken(String raw) {
-        if (raw == null)
-            return null;
-        return raw.startsWith("Bearer ") ? raw : "Bearer " + raw;
-    }
 }

@@ -164,9 +164,6 @@ public class GeminiService {
     }
 
     String cleanIcs(String text) {
-        if (text == null)
-            return null;
-        String cleaned = text.replaceAll("```(?:ics)?\\s*[\\r\\n]|```", "").trim();
-        return cleaned;
+        return IcsUtils.cleanIcs(text);
     }
 }
