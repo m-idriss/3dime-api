@@ -52,4 +52,30 @@ public class QuotaServiceTest {
         }
         assertNotNull(quotaService.getQuotaStatus("user1"));
     }
+
+    @Test
+    public void testCheckQuota_neverThrows_andDefaultsToAllow() {
+        // checkQuota must never throw regardless of Firestore state;
+        // it defaults to allowed=true on errors (to not block users)
+        assertDoesNotThrow(() -> {
+            QuotaService.QuotaCheckResult result = quotaService.checkQuota("resilience-test-user");
+            assertTrue(result.allowed());
+        });
+    }
+
+    @Test
+    public void testFindAll_neverThrows_andReturnsNonNull() {
+        assertDoesNotThrow(() -> assertNotNull(quotaService.findAll()));
+    }
+
+    @Test
+    public void testDeleteQuota_neverThrows() {
+        assertDoesNotThrow(() -> quotaService.deleteQuota("non-existent-user-delete"));
+    }
+
+    @Test
+    public void testUpdateQuota_neverThrows() {
+        UserQuota quota = new UserQuota();
+        assertDoesNotThrow(() -> quotaService.updateQuota("non-existent-user-update", quota));
+    }
 }
