@@ -35,10 +35,10 @@ public class ClaudeService {
     @ConfigProperty(name = "claude.model", defaultValue = "claude-3-5-sonnet-20241022")
     String modelName;
 
-    @ConfigProperty(name = "gemini.base-message")
+    @ConfigProperty(name = "claude.base-message")
     String baseMessageTemplate;
 
-    @ConfigProperty(name = "gemini.system-prompt")
+    @ConfigProperty(name = "claude.system-prompt")
     String systemPrompt;
 
     @ConfigProperty(name = "claude.api.key")
@@ -115,8 +115,11 @@ public class ClaudeService {
         }
 
         if (response.has("content") && response.get("content").size() > 0) {
-            String text = response.get("content").get(0).get("text").asText();
-            return cleanIcs(text);
+            JsonNode firstContent = response.get("content").get(0);
+            if (firstContent != null && firstContent.has("text")) {
+                String text = firstContent.get("text").asText();
+                return cleanIcs(text);
+            }
         }
 
         log.error("Claude response did not contain expected content: {}", response.toString());
