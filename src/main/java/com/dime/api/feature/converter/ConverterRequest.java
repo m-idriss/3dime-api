@@ -2,6 +2,7 @@ package com.dime.api.feature.converter;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
@@ -17,9 +18,13 @@ public class ConverterRequest {
     @Schema(description = "List of image files to convert", required = true)
     public List<@Valid ImageFile> files;
     
+    @Pattern(regexp = "[A-Za-z0-9/_+\\-]+",
+             message = "timeZone must be a valid IANA timezone identifier (e.g. 'UTC', 'America/New_York')")
     @Schema(description = "Timezone for event times (e.g., 'America/New_York')", examples = "UTC")
     public String timeZone;
-    
+
+    @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}",
+             message = "currentDate must be in YYYY-MM-DD format")
     @Schema(description = "Current date in ISO-8601 format for context", examples = "2024-01-31")
     public String currentDate;
     
