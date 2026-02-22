@@ -50,7 +50,7 @@
 
     <!-- Maven Plugin Versions -->
     <compiler-plugin.version>3.15.0</compiler-plugin.version>
-    <surefire-plugin.version>3.5.4</surefire-plugin.version>
+    <surefire-plugin.version>3.5.5</surefire-plugin.version>
     <enforcer-plugin.version>3.6.2</enforcer-plugin.version>
 
     <!-- Dependency Versions -->
