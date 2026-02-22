@@ -6,6 +6,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.WebApplicationException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,6 +38,7 @@ public class GitHubService {
   ObjectMapper objectMapper;
 
   @CacheResult(cacheName = "github-user-cache")
+  @Timeout(value = 10, unit = ChronoUnit.SECONDS)
   public GitHubUser getUserInfo() {
     log.info("Fetching GitHub user info for: {}", username);
 
@@ -56,6 +58,7 @@ public class GitHubService {
   }
 
   @CacheResult(cacheName = "github-social-cache")
+  @Timeout(value = 10, unit = ChronoUnit.SECONDS)
   public JsonNode getSocialAccounts() {
     try {
       return gitHubClient.getSocialAccounts(getAuthHeader().orElse(null), username);
@@ -76,6 +79,7 @@ public class GitHubService {
   }
 
   @CacheResult(cacheName = "github-commits-cache")
+  @Timeout(value = 10, unit = ChronoUnit.SECONDS)
   public List<Map<String, Object>> getCommits(int months) {
     // Validate months parameter
     if (months < 1 || months > 60) {

@@ -10,6 +10,7 @@ import jakarta.ws.rs.core.UriInfo;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.microprofile.faulttolerance.exceptions.TimeoutException;
 import org.jboss.resteasy.reactive.ClientWebApplicationException;
 
 /**
@@ -27,6 +28,17 @@ public class GlobalExceptionMapper implements ExceptionMapper<Throwable> {
     @Override
     public Response toResponse(Throwable exception) {
         String path = uriInfo != null ? uriInfo.getPath() : "unknown";
+
+        // Fault tolerance timeout — external service took too long
+        if (exception instanceof TimeoutException) {
+            log.warn("Request timed out on {}: {}", path, exception.getMessage());
+            ErrorResponse errorResponse = ErrorResponse.externalService("External API",
+                    "The request timed out. The upstream service did not respond in time.");
+            errorResponse.setPath(path);
+            return Response.status(Response.Status.GATEWAY_TIMEOUT)
+                    .entity(errorResponse)
+                    .build();
+        }
 
         // Business exceptions - expected errors
         if (exception instanceof BusinessException) {

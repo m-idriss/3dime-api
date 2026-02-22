@@ -9,9 +9,11 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -38,6 +40,7 @@ public class NotionService {
     ObjectMapper objectMapper;
 
     @CacheResult(cacheName = "notion-cms-cache")
+    @Timeout(value = 10, unit = ChronoUnit.SECONDS)
     public Map<String, List<CmsItem>> getCmsContent() {
         if (databaseId == null || databaseId.trim().isEmpty()) {
             log.warn("Notion CMS database ID not configured (notion.cms.database-id). Returning empty content.");
