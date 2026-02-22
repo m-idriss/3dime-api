@@ -137,8 +137,6 @@ public class ClaudeService {
     }
 
     String cleanIcs(String text) {
-        if (text == null)
-            return null;
-        return text.replaceAll("```(?:ics)?\\s*[\\r\\n]|```", "").trim();
+        return IcsUtils.cleanIcs(text);
     }
 }

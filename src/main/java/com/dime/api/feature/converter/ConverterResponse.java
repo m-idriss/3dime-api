@@ -28,21 +28,4 @@ public class ConverterResponse {
         this.success = success;
         this.icsContent = icsContent;
     }
-
-    public static ConverterResponse error(String error, String message) {
-        ConverterResponse response = new ConverterResponse();
-        response.success = false;
-        response.error = error;
-        response.message = message;
-        return response;
-    }
-
-    public static ConverterResponse error(String error, String message, Object details) {
-        ConverterResponse response = new ConverterResponse();
-        response.success = false;
-        response.error = error;
-        response.message = message;
-        response.details = details;
-        return response;
-    }
 }

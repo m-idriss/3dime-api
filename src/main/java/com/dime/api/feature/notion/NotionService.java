@@ -1,5 +1,6 @@
 package com.dime.api.feature.notion;
 
+import com.dime.api.feature.shared.BearerTokenUtil;
 import com.dime.api.feature.shared.exception.ExternalServiceException;
 import io.quarkus.cache.CacheResult;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -64,7 +65,7 @@ public class NotionService {
             sort.put("property", "Rank");
             sort.put("direction", "ascending");
 
-            String authToken = bearerToken(token);
+            String authToken = BearerTokenUtil.ensureBearer(token);
             JsonNode response = notionClient.queryDatabase(authToken, version, databaseId, query);
 
             Map<String, List<CmsItem>> groupedContent = new HashMap<>();
@@ -136,12 +137,6 @@ public class NotionService {
             return prop.get("select").get("name").asText(defaultValue);
         }
         return defaultValue;
-    }
-
-    private String bearerToken(String raw) {
-        if (raw == null)
-            return null;
-        return raw.startsWith("Bearer ") ? raw : "Bearer " + raw;
     }
 
     public record CmsItem(String name, String url, String description, long rank, String category) {

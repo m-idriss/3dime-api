@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.dime.api.feature.notion.NotionClient;
+import com.dime.api.feature.shared.BearerTokenUtil;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -53,7 +54,7 @@ public class NotionQuotaService {
             filter.put("property", "User ID");
             filter.putObject("title").put("equals", userId);
 
-            JsonNode response = notionClient.queryDatabase(bearerToken(token), version, quotaDbId.get(), query);
+            JsonNode response = notionClient.queryDatabase(BearerTokenUtil.ensureBearer(token), version, quotaDbId.get(), query);
 
             if (response.has("results") && response.get("results").isArray() && response.get("results").size() > 0) {
                 return response.get("results").get(0).get("id").asText();
@@ -78,7 +79,7 @@ public class NotionQuotaService {
             addDateProperty(properties, "Last Reset", periodStart.toString());
             addSelectProperty(properties, "Plan", plan.name());
 
-            String authToken = bearerToken(token);
+            String authToken = BearerTokenUtil.ensureBearer(token);
 
             if (pageId != null) {
                 ObjectNode updatePayload = objectMapper.createObjectNode();
@@ -104,7 +105,7 @@ public class NotionQuotaService {
         List<QuotaData> results = new ArrayList<>();
         try {
             ObjectNode query = objectMapper.createObjectNode();
-            JsonNode response = notionClient.queryDatabase(bearerToken(token), version, quotaDbId.get(), query);
+            JsonNode response = notionClient.queryDatabase(BearerTokenUtil.ensureBearer(token), version, quotaDbId.get(), query);
 
             if (response.has("results") && response.get("results").isArray()) {
                 for (JsonNode page : response.get("results")) {
@@ -169,7 +170,7 @@ public class NotionQuotaService {
             if (pageId != null) {
                 ObjectNode properties = objectMapper.createObjectNode();
                 properties.put("archived", true);
-                notionClient.updatePage(bearerToken(token), version, pageId, properties);
+                notionClient.updatePage(BearerTokenUtil.ensureBearer(token), version, pageId, properties);
                 log.info("Archived quota page in Notion for user {}", userId);
             }
         } catch (Exception e) {
@@ -193,12 +194,6 @@ public class NotionQuotaService {
 
     void addSelectProperty(ObjectNode properties, String name, String option) {
         properties.putObject(name).putObject("select").put("name", option);
-    }
-
-    private String bearerToken(String raw) {
-        if (raw == null)
-            return null;
-        return raw.startsWith("Bearer ") ? raw : "Bearer " + raw;
     }
 
     public record QuotaData(String userId, long usageCount, Instant lastReset, PlanType plan) {
