@@ -11,6 +11,7 @@ import org.eclipse.microprofile.faulttolerance.Retry;
 import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 import com.fasterxml.jackson.databind.JsonNode;
+import java.time.temporal.ChronoUnit;
 
 @RegisterRestClient(configKey = "com.dime.api.feature.github.GitHubClient")
 public interface GitHubClient {
@@ -31,4 +32,10 @@ public interface GitHubClient {
     @Path("/graphql")
     @Produces(MediaType.APPLICATION_JSON)
     JsonNode postGraphql(@HeaderParam("Authorization") String token, Object query);
+
+    @GET
+    @Path("/rate_limit")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Timeout(value = 500, unit = ChronoUnit.MILLIS)
+    JsonNode getRateLimit(@HeaderParam("Authorization") String token);
 }

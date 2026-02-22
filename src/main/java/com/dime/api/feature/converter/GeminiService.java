@@ -141,6 +141,10 @@ public class GeminiService {
         throw new ProcessingException("Gemini API returned unexpected response format");
     }
 
+    public void ping() throws IOException {
+        getAccessToken();
+    }
+
     String getAccessToken() throws IOException {
         if (cachedCredentials == null) {
             synchronized (this) {
