@@ -4,6 +4,7 @@
 [![Quarkus](https://img.shields.io/badge/Quarkus-3.31.3-blue.svg)](https://quarkus.io/)
 [![Google Cloud](https://img.shields.io/badge/Google%20Cloud-Run-4285F4.svg)](https://cloud.google.com/run)
 [![Build](https://img.shields.io/badge/Build-Maven-C71A36.svg)](https://maven.apache.org/)
+[![API Status](https://img.shields.io/website?url=https%3A%2F%2Fapi.3dime.com%2Fhealth&label=API&up_message=online&down_message=offline)](https://api.3dime.com/health)
 
 A production-ready REST API built with Quarkus and Java 21, deployed on Google Cloud Run. It powers [3dime.com](https://3dime.com) and [photocalia.com](https://photocalia.com) with AI-powered image-to-calendar conversion, GitHub integration, Notion CMS, and per-user quota management.
 
