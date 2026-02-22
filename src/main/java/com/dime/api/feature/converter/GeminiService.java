@@ -11,11 +11,13 @@ import com.google.auth.oauth2.ServiceAccountCredentials;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -48,6 +50,7 @@ public class GeminiService {
     @ConfigProperty(name = "gemini.api.key")
     Optional<String> apiKeyJson;
 
+    @Timeout(value = 60, unit = ChronoUnit.SECONDS)
     public String generateIcs(ConverterRequest request) throws IOException {
         String token;
         try {

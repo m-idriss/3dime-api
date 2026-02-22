@@ -10,8 +10,10 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -42,6 +44,7 @@ public class ClaudeService {
     @ConfigProperty(name = "claude.api.key")
     Optional<String> apiKey;
 
+    @Timeout(value = 60, unit = ChronoUnit.SECONDS)
     public String generateIcs(ConverterRequest request) {
         if (apiKey.isEmpty() || apiKey.get().trim().isEmpty()) {
             throw new ExternalServiceException("Claude", "Missing Claude API key (CLAUDE_API_KEY)");
