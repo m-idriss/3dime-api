@@ -19,6 +19,8 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
 import java.io.IOException;
 import java.util.Map;
 
@@ -35,7 +37,13 @@ public class ConverterResource {
     GeminiService geminiService;
 
     @Inject
+    ClaudeService claudeService;
+
+    @Inject
     TrackingService trackingService;
+
+    @ConfigProperty(name = "ai.provider", defaultValue = "claude")
+    String aiProvider;
 
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
@@ -76,8 +84,10 @@ public class ConverterResource {
         }
 
         try {
-            // Call Gemini
-            String icsContent = geminiService.generateIcs(request);
+            // Call AI provider
+            String icsContent = "gemini".equalsIgnoreCase(aiProvider)
+                    ? geminiService.generateIcs(request)
+                    : claudeService.generateIcs(request);
 
             if (icsContent == null || icsContent.isEmpty() || icsContent.equalsIgnoreCase("null")) {
                 trackingService.logConversionError(userId, fileCount, "No events found in images",
