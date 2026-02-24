@@ -21,7 +21,7 @@ A production-ready REST API built with Quarkus and Java 21, deployed on Google C
 
 ### Technical Features
 - **RESTEasy Reactive** — Non-blocking REST APIs and REST clients
-- **Health Checks** — Liveness and readiness probes at `/health/live` and `/health/ready`
+- **Health Checks** — Liveness probe at `/health/live`; readiness probe at `/health/ready` with per-dependency checks (Firestore, Gemini, Notion, GitHub), criticality levels, latency reporting, and 15 s result caching
 - **OpenAPI / Swagger UI** — Auto-generated docs at `/api-docs`
 - **Fault Tolerance** — `@Retry` and `@Timeout` via SmallRye Fault Tolerance
 - **Caching** — In-memory result caching with Quarkus Cache (Caffeine)
@@ -176,14 +176,69 @@ Requires `admin` role. Login via `POST /j_security_check` (form fields: `j_usern
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/health` | Combined health check |
-| `GET` | `/health/live` | Liveness probe |
-| `GET` | `/health/ready` | Readiness probe |
+| `GET` | `/health` | Combined health check (live + ready) |
+| `GET` | `/health/live` | Liveness probe — always `UP` if the JVM is running |
+| `GET` | `/health/ready` | Readiness probe — checks all external dependencies |
 | `GET` | `/api-docs` | Interactive Swagger UI (admin) |
 | `GET` | `/api-schema` | Full OpenAPI JSON |
 | `GET` | `/api-schema/public` | Public-facing OpenAPI schema |
 | `GET` | `/api-schema/admin` | Admin OpenAPI schema |
 | `GET` | `/` | Redirect to `/api-docs` |
+
+---
+
+## 🩺 Health Monitoring
+
+The `/health/ready` endpoint checks each external dependency individually and reports structured status with latency.
+
+### Dependency Map
+
+| Dependency | Check | Critical | Failure Impact |
+| :--- | :--- | :---: | :--- |
+| 🔥 **Firestore** | Reads `users` collection (500 ms timeout) | ✅ Yes | Readiness → `DOWN` · Traffic halted on Cloud Run |
+| 🤖 **Gemini API** | Validates OAuth2 service-account token | ✅ Yes | Readiness → `DOWN` · Traffic halted on Cloud Run |
+| 📝 **Notion API** | `GET /v1/users/me` (500 ms timeout) | ❌ No | Degraded — readiness stays `UP`, error surfaced in data |
+| 🐙 **GitHub API** | `GET /rate_limit` (500 ms timeout) | ❌ No | Degraded — readiness stays `UP`, error surfaced in data |
+
+### Global Status Logic
+
+```
+All critical deps UP  →  status: UP    (HTTP 200)
+Any critical dep DOWN →  status: DOWN  (HTTP 503) — Cloud Run stops routing traffic
+Non-critical dep DOWN →  status: UP    (HTTP 200) — app still serves; error visible in check data
+```
+
+### Example Response
+
+```json
+GET /health/ready
+
+{
+  "status": "UP",
+  "checks": [
+    { "name": "firestore", "status": "UP",   "data": { "latencyMs": 42 } },
+    { "name": "gemini",    "status": "UP",   "data": { "latencyMs": 118 } },
+    { "name": "notion",    "status": "UP",   "data": { "latencyMs": 95 } },
+    { "name": "github",    "status": "UP",   "data": { "latencyMs": 61 } }
+  ]
+}
+```
+
+```json
+GET /health/ready  — when Notion is unreachable
+
+{
+  "status": "UP",
+  "checks": [
+    { "name": "firestore", "status": "UP",   "data": { "latencyMs": 38 } },
+    { "name": "gemini",    "status": "UP",   "data": { "latencyMs": 110 } },
+    { "name": "notion",    "status": "UP",   "data": { "latencyMs": 501, "status": "DOWN", "error": "timeout" } },
+    { "name": "github",    "status": "UP",   "data": { "latencyMs": 74 } }
+  ]
+}
+```
+
+> **Performance** — Results are cached for **15 seconds** per check to avoid hammering external APIs on every Cloud Run health poll.
 
 ---
 
