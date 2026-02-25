@@ -33,6 +33,8 @@ public class NotionResource {
     @APIResponse(responseCode = "500", description = "Internal server error")
     public Response getCmsContent() {
         Map<String, List<NotionService.CmsItem>> content = notionService.getCmsContent();
-        return Response.ok(content).build();
+        return Response.ok(content)
+                .header("Cache-Control", "public, max-age=7200")
+                .build();
     }
 }

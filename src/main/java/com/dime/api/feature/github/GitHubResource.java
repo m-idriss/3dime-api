@@ -6,6 +6,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.extensions.Extension;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
@@ -32,9 +33,11 @@ public class GitHubResource {
     @APIResponse(responseCode = "200", description = "User information retrieved successfully")
     @APIResponse(responseCode = "502", description = "Failed to fetch user from GitHub API")
     @APIResponse(responseCode = "500", description = "Internal server error")
-    public GitHubUser getUser() {
+    public Response getUser() {
         log.info("GET /github/user endpoint called");
-        return gitHubService.getUserInfo();
+        return Response.ok(gitHubService.getUserInfo())
+                .header("Cache-Control", "public, max-age=3600")
+                .build();
     }
 
     @GET
@@ -44,9 +47,11 @@ public class GitHubResource {
     @APIResponse(responseCode = "200", description = "Social accounts retrieved successfully")
     @APIResponse(responseCode = "502", description = "Failed to fetch social accounts from GitHub API")
     @APIResponse(responseCode = "500", description = "Internal server error")
-    public JsonNode getSocialAccounts() {
+    public Response getSocialAccounts() {
         log.info("GET /github/social endpoint called");
-        return gitHubService.getSocialAccounts();
+        return Response.ok(gitHubService.getSocialAccounts())
+                .header("Cache-Control", "public, max-age=3600")
+                .build();
     }
 
     @GET
@@ -57,7 +62,7 @@ public class GitHubResource {
     @APIResponse(responseCode = "400", description = "Invalid months parameter")
     @APIResponse(responseCode = "502", description = "Failed to fetch commits from GitHub API")
     @APIResponse(responseCode = "500", description = "Internal server error")
-    public List<Map<String, Object>> getCommits(@QueryParam("months") String monthsStr) {
+    public Response getCommits(@QueryParam("months") String monthsStr) {
         log.info("GET /github/commits endpoint called with months={}", monthsStr);
 
         int months = 12; // default
@@ -71,6 +76,8 @@ public class GitHubResource {
                 throw new ValidationException("Invalid months parameter. Must be a valid integer.");
             }
         }
-        return gitHubService.getCommits(months);
+        return Response.ok(gitHubService.getCommits(months))
+                .header("Cache-Control", "public, max-age=3600")
+                .build();
     }
 }
