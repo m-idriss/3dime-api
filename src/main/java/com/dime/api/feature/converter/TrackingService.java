@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.dime.api.feature.notion.NotionClient;
 import com.dime.api.feature.shared.BearerTokenUtil;
+import com.dime.api.feature.shared.FirestoreCacheService;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -44,6 +45,9 @@ public class TrackingService {
 
     @ConfigProperty(name = "notion.user-id")
     Optional<String> assignedUserId;
+
+    @Inject
+    FirestoreCacheService firestoreCacheService;
 
     LoadingCache<String, Statistics> statisticsCache;
 
@@ -124,6 +128,12 @@ public class TrackingService {
         return statisticsCache.get("default");
     }
 
+    public void warmFromFirestore() {
+        if (firestoreCacheService == null) return;
+        firestoreCacheService.read("statistics", Statistics.class)
+                .ifPresent(stats -> statisticsCache.put("default", stats));
+    }
+
     private Statistics fetchStatistics() {
         if (!isEnabled()) {
             return new Statistics(0, 0);
@@ -162,7 +172,9 @@ public class TrackingService {
             }
 
             log.info("Fetched statistics from Notion: fileCount={}, eventCount={}", totalFileCount, totalEventCount);
-            return new Statistics(totalFileCount, totalEventCount);
+            Statistics stats = new Statistics(totalFileCount, totalEventCount);
+            if (firestoreCacheService != null) firestoreCacheService.write("statistics", stats);
+            return stats;
 
         } catch (Exception e) {
             log.error("Failed to fetch statistics from Notion", e);

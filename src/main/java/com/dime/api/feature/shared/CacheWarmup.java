@@ -25,41 +25,53 @@ public class CacheWarmup {
     TrackingService trackingService;
 
     void onStart(@Observes StartupEvent event) {
-        log.info("Starting async cache warmup...");
-        CompletableFuture.runAsync(this::warmCaches);
+        log.info("Starting cache warmup...");
+        warmFromFirestore();
+        CompletableFuture.runAsync(this::warmFromApis);
     }
 
-    private void warmCaches() {
+    private void warmFromFirestore() {
+        try {
+            gitHubService.warmFromFirestore();
+            notionService.warmFromFirestore();
+            trackingService.warmFromFirestore();
+            log.info("Phase 1: Firestore cache warmup completed (instant data available)");
+        } catch (Exception e) {
+            log.warn("Firestore cache warmup failed: {}", e.getMessage());
+        }
+    }
+
+    private void warmFromApis() {
         try {
             gitHubService.getUserInfo();
-            log.info("GitHub user cache warmed up");
+            log.info("GitHub user cache refreshed from API");
         } catch (Exception e) {
             log.warn("Failed to warm GitHub user cache: {}", e.getMessage());
         }
         try {
             gitHubService.getSocialAccounts();
-            log.info("GitHub social cache warmed up");
+            log.info("GitHub social cache refreshed from API");
         } catch (Exception e) {
             log.warn("Failed to warm GitHub social cache: {}", e.getMessage());
         }
         try {
             gitHubService.getCommits(12);
-            log.info("GitHub commits cache warmed up");
+            log.info("GitHub commits cache refreshed from API");
         } catch (Exception e) {
             log.warn("Failed to warm GitHub commits cache: {}", e.getMessage());
         }
         try {
             notionService.getCmsContent();
-            log.info("Notion CMS cache warmed up");
+            log.info("Notion CMS cache refreshed from API");
         } catch (Exception e) {
             log.warn("Failed to warm Notion CMS cache: {}", e.getMessage());
         }
         try {
             trackingService.getStatistics();
-            log.info("Statistics cache warmed up");
+            log.info("Statistics cache refreshed from API");
         } catch (Exception e) {
             log.warn("Failed to warm statistics cache: {}", e.getMessage());
         }
-        log.info("Cache warmup completed");
+        log.info("Phase 2: API cache warmup completed");
     }
 }
