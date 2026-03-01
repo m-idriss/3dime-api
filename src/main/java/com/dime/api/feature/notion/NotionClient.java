@@ -41,7 +41,7 @@ public interface NotionClient {
         @GET
         @Path("/users/me")
         @Produces(MediaType.APPLICATION_JSON)
-        @Timeout(value = 500, unit = ChronoUnit.MILLIS)
+        @Timeout(value = 2, unit = ChronoUnit.SECONDS)
         JsonNode getMe(@HeaderParam("Authorization") String token,
                         @HeaderParam("Notion-Version") String version);
 }
