@@ -54,7 +54,7 @@
     <enforcer-plugin.version>3.6.2</enforcer-plugin.version>
 
     <!-- Dependency Versions -->
-    <quarkus-google-cloud-firestore.version>2.20.1</quarkus-google-cloud-firestore.version>
+    <quarkus-google-cloud-firestore.version>2.21.0</quarkus-google-cloud-firestore.version>
     <dotenv-java.version>3.2.0</dotenv-java.version>
     <lombok.version>1.18.42</lombok.version>
   </properties>
