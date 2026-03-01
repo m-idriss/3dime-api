@@ -1,19 +1,22 @@
 package com.dime.api.feature.converter;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.quarkus.cache.CacheResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.dime.api.feature.notion.NotionClient;
 import com.dime.api.feature.shared.BearerTokenUtil;
+import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 
@@ -41,6 +44,16 @@ public class TrackingService {
 
     @ConfigProperty(name = "notion.user-id")
     Optional<String> assignedUserId;
+
+    LoadingCache<String, Statistics> statisticsCache;
+
+    @PostConstruct
+    void initCaches() {
+        statisticsCache = Caffeine.newBuilder()
+                .refreshAfterWrite(Duration.ofMinutes(5))
+                .expireAfterWrite(Duration.ofHours(1))
+                .build(key -> fetchStatistics());
+    }
 
     private boolean isEnabled() {
         return notionToken.isPresent() && trackingDbId.isPresent();
@@ -107,8 +120,11 @@ public class TrackingService {
         }
     }
 
-    @CacheResult(cacheName = "statistics-cache")
     public Statistics getStatistics() {
+        return statisticsCache.get("default");
+    }
+
+    private Statistics fetchStatistics() {
         if (!isEnabled()) {
             return new Statistics(0, 0);
         }

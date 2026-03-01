@@ -84,6 +84,7 @@ public class TrackingServiceTest {
             service.trackingDbId = Optional.of("test-db-id");
             service.notionVersion = "2022-02-22";
             service.assignedUserId = Optional.empty();
+            service.initCaches();
         }
 
         @Test

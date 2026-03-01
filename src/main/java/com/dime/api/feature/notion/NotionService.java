@@ -2,19 +2,20 @@ package com.dime.api.feature.notion;
 
 import com.dime.api.feature.shared.BearerTokenUtil;
 import com.dime.api.feature.shared.exception.ExternalServiceException;
-import io.quarkus.cache.CacheResult;
+import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import lombok.extern.slf4j.Slf4j;
 
-import java.time.temporal.ChronoUnit;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -40,9 +41,21 @@ public class NotionService {
     @Inject
     ObjectMapper objectMapper;
 
-    @CacheResult(cacheName = "notion-cms-cache")
-    @Timeout(value = 10, unit = ChronoUnit.SECONDS)
+    LoadingCache<String, Map<String, List<CmsItem>>> cmsCache;
+
+    @PostConstruct
+    void initCaches() {
+        cmsCache = Caffeine.newBuilder()
+                .refreshAfterWrite(Duration.ofHours(2))
+                .expireAfterWrite(Duration.ofHours(24))
+                .build(key -> fetchCmsContent());
+    }
+
     public Map<String, List<CmsItem>> getCmsContent() {
+        return cmsCache.get("default");
+    }
+
+    private Map<String, List<CmsItem>> fetchCmsContent() {
         if (databaseId == null || databaseId.trim().isEmpty()) {
             log.warn("Notion CMS database ID not configured (notion.cms.database-id). Returning empty content.");
             return new HashMap<>();
@@ -51,15 +64,12 @@ public class NotionService {
         log.info("Fetching CMS content from Notion database: {}", databaseId);
 
         try {
-            // Build query payload
             ObjectNode query = objectMapper.createObjectNode();
 
-            // Filter: Name is not empty
             ObjectNode filter = query.putObject("filter");
             filter.put("property", "Name");
             filter.putObject("rich_text").put("is_not_empty", true);
 
-            // Sort: Rank ascending
             ArrayNode sorts = query.putArray("sorts");
             ObjectNode sort = sorts.addObject();
             sort.put("property", "Rank");
