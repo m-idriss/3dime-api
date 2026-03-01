@@ -1,7 +1,9 @@
 package com.dime.api.feature.notion;
 
 import com.dime.api.feature.shared.BearerTokenUtil;
+import com.dime.api.feature.shared.FirestoreCacheService;
 import com.dime.api.feature.shared.exception.ExternalServiceException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -41,6 +43,9 @@ public class NotionService {
     @Inject
     ObjectMapper objectMapper;
 
+    @Inject
+    FirestoreCacheService firestoreCacheService;
+
     LoadingCache<String, Map<String, List<CmsItem>>> cmsCache;
 
     @PostConstruct
@@ -53,6 +58,12 @@ public class NotionService {
 
     public Map<String, List<CmsItem>> getCmsContent() {
         return cmsCache.get("default");
+    }
+
+    public void warmFromFirestore() {
+        if (firestoreCacheService == null) return;
+        firestoreCacheService.read("notion-cms", new TypeReference<Map<String, List<CmsItem>>>() {})
+                .ifPresent(cms -> cmsCache.put("default", cms));
     }
 
     private Map<String, List<CmsItem>> fetchCmsContent() {
@@ -97,6 +108,7 @@ public class NotionService {
                 }
             }
 
+            if (firestoreCacheService != null) firestoreCacheService.write("notion-cms", groupedContent);
             return groupedContent;
 
         } catch (org.jboss.resteasy.reactive.ClientWebApplicationException e) {

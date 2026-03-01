@@ -1,6 +1,8 @@
 package com.dime.api.feature.github;
 
+import com.dime.api.feature.shared.FirestoreCacheService;
 import com.dime.api.feature.shared.exception.ExternalServiceException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import jakarta.annotation.PostConstruct;
@@ -39,6 +41,9 @@ public class GitHubService {
   @Inject
   ObjectMapper objectMapper;
 
+  @Inject
+  FirestoreCacheService firestoreCacheService;
+
   LoadingCache<String, GitHubUser> userCache;
   LoadingCache<String, JsonNode> socialCache;
   LoadingCache<Integer, List<Map<String, Object>>> commitsCache;
@@ -76,6 +81,16 @@ public class GitHubService {
     return commitsCache.get(months);
   }
 
+  public void warmFromFirestore() {
+    if (firestoreCacheService == null) return;
+    firestoreCacheService.read("github-user", GitHubUser.class)
+        .ifPresent(user -> userCache.put("default", user));
+    firestoreCacheService.read("github-social", JsonNode.class)
+        .ifPresent(social -> socialCache.put("default", social));
+    firestoreCacheService.read("github-commits-12", new TypeReference<List<Map<String, Object>>>() {})
+        .ifPresent(commits -> commitsCache.put(12, commits));
+  }
+
   private Optional<String> getAuthHeader() {
     return token.filter(t -> !t.trim().isEmpty())
         .map(t -> t.startsWith("Bearer ") ? t : "Bearer " + t);
@@ -86,6 +101,7 @@ public class GitHubService {
     try {
       GitHubUser user = gitHubClient.getUser(getAuthHeader().orElse(null), username);
       log.info("Successfully fetched user info for: {}", username);
+      if (firestoreCacheService != null) firestoreCacheService.write("github-user", user);
       return user;
     } catch (WebApplicationException e) {
       log.error("Failed to fetch GitHub user info for: {}", username, e);
@@ -101,7 +117,9 @@ public class GitHubService {
   private JsonNode fetchSocial() {
     log.info("Fetching GitHub social accounts for: {}", username);
     try {
-      return gitHubClient.getSocialAccounts(getAuthHeader().orElse(null), username);
+      JsonNode social = gitHubClient.getSocialAccounts(getAuthHeader().orElse(null), username);
+      if (firestoreCacheService != null) firestoreCacheService.write("github-social", social);
+      return social;
     } catch (WebApplicationException e) {
       log.error("Failed to fetch GitHub social accounts for: {}", username, e);
       throw new ExternalServiceException("GitHub",
@@ -175,6 +193,7 @@ public class GitHubService {
         }
       }
 
+      if (firestoreCacheService != null) firestoreCacheService.write("github-commits-" + months, commits);
       return commits;
 
     } catch (WebApplicationException e) {
