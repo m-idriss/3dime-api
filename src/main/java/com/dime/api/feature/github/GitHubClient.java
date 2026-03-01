@@ -36,6 +36,6 @@ public interface GitHubClient {
     @GET
     @Path("/rate_limit")
     @Produces(MediaType.APPLICATION_JSON)
-    @Timeout(value = 500, unit = ChronoUnit.MILLIS)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
     JsonNode getRateLimit(@HeaderParam("Authorization") String token);
 }

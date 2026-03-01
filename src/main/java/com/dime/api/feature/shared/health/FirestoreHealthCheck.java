@@ -38,7 +38,7 @@ public class FirestoreHealthCheck implements HealthCheck {
     HealthCheckResponse doCheck() {
         long start = System.currentTimeMillis();
         try {
-            firestore.collection("users").limit(1).get().get(500, TimeUnit.MILLISECONDS);
+            firestore.collection("users").limit(1).get().get(2, TimeUnit.SECONDS);
             long latencyMs = System.currentTimeMillis() - start;
             return HealthCheckResponse.named(CHECK_NAME)
                     .up()
