@@ -1,18 +1,20 @@
 package com.dime.api.feature.github;
 
 import com.dime.api.feature.shared.exception.ExternalServiceException;
-import io.quarkus.cache.CacheResult;
+import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.WebApplicationException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -37,11 +39,50 @@ public class GitHubService {
   @Inject
   ObjectMapper objectMapper;
 
-  @CacheResult(cacheName = "github-user-cache")
-  @Timeout(value = 10, unit = ChronoUnit.SECONDS)
-  public GitHubUser getUserInfo() {
-    log.info("Fetching GitHub user info for: {}", username);
+  LoadingCache<String, GitHubUser> userCache;
+  LoadingCache<String, JsonNode> socialCache;
+  LoadingCache<Integer, List<Map<String, Object>>> commitsCache;
 
+  @PostConstruct
+  void initCaches() {
+    userCache = Caffeine.newBuilder()
+        .refreshAfterWrite(Duration.ofHours(1))
+        .expireAfterWrite(Duration.ofHours(24))
+        .build(key -> fetchUser());
+
+    socialCache = Caffeine.newBuilder()
+        .refreshAfterWrite(Duration.ofHours(1))
+        .expireAfterWrite(Duration.ofHours(24))
+        .build(key -> fetchSocial());
+
+    commitsCache = Caffeine.newBuilder()
+        .refreshAfterWrite(Duration.ofHours(1))
+        .expireAfterWrite(Duration.ofHours(24))
+        .build(this::fetchCommits);
+  }
+
+  public GitHubUser getUserInfo() {
+    return userCache.get("default");
+  }
+
+  public JsonNode getSocialAccounts() {
+    return socialCache.get("default");
+  }
+
+  public List<Map<String, Object>> getCommits(int months) {
+    if (months < 1 || months > 60) {
+      throw new IllegalArgumentException("Months parameter must be between 1 and 60");
+    }
+    return commitsCache.get(months);
+  }
+
+  private Optional<String> getAuthHeader() {
+    return token.filter(t -> !t.trim().isEmpty())
+        .map(t -> t.startsWith("Bearer ") ? t : "Bearer " + t);
+  }
+
+  private GitHubUser fetchUser() {
+    log.info("Fetching GitHub user info for: {}", username);
     try {
       GitHubUser user = gitHubClient.getUser(getAuthHeader().orElse(null), username);
       log.info("Successfully fetched user info for: {}", username);
@@ -57,9 +98,8 @@ public class GitHubService {
     }
   }
 
-  @CacheResult(cacheName = "github-social-cache")
-  @Timeout(value = 10, unit = ChronoUnit.SECONDS)
-  public JsonNode getSocialAccounts() {
+  private JsonNode fetchSocial() {
+    log.info("Fetching GitHub social accounts for: {}", username);
     try {
       return gitHubClient.getSocialAccounts(getAuthHeader().orElse(null), username);
     } catch (WebApplicationException e) {
@@ -73,18 +113,8 @@ public class GitHubService {
     }
   }
 
-  private Optional<String> getAuthHeader() {
-    return token.filter(t -> !t.trim().isEmpty())
-        .map(t -> t.startsWith("Bearer ") ? t : "Bearer " + t);
-  }
-
-  @CacheResult(cacheName = "github-commits-cache")
-  @Timeout(value = 10, unit = ChronoUnit.SECONDS)
-  public List<Map<String, Object>> getCommits(int months) {
-    // Validate months parameter
-    if (months < 1 || months > 60) {
-      throw new IllegalArgumentException("Months parameter must be between 1 and 60");
-    }
+  private List<Map<String, Object>> fetchCommits(int months) {
+    log.info("Fetching GitHub commits for: {} (months: {})", username, months);
 
     String query = """
         query {
@@ -106,7 +136,6 @@ public class GitHubService {
     ObjectNode body = objectMapper.createObjectNode();
     body.put("query", query);
 
-    // We need a token for GraphQL
     if (token.isEmpty() || token.get().trim().isEmpty()) {
       log.warn("GitHub token not configured. Skipping commit statistics fetch.");
       return new ArrayList<>();
@@ -154,7 +183,7 @@ public class GitHubService {
           "Failed to fetch commit statistics from GitHub GraphQL API. Status: " + e.getResponse().getStatus(), e);
     } catch (Exception e) {
       if (e instanceof ExternalServiceException) {
-        throw e; // Re-throw our own exception
+        throw e;
       }
       log.error("Unexpected error fetching GitHub commits for: {}", username, e);
       throw new ExternalServiceException("GitHub",

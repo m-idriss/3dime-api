@@ -1,5 +1,6 @@
 package com.dime.api.feature.shared;
 
+import com.dime.api.feature.converter.TrackingService;
 import com.dime.api.feature.github.GitHubService;
 import com.dime.api.feature.notion.NotionService;
 import io.quarkus.runtime.StartupEvent;
@@ -20,6 +21,9 @@ public class CacheWarmup {
     @Inject
     NotionService notionService;
 
+    @Inject
+    TrackingService trackingService;
+
     void onStart(@Observes StartupEvent event) {
         log.info("Starting async cache warmup...");
         CompletableFuture.runAsync(this::warmCaches);
@@ -39,10 +43,22 @@ public class CacheWarmup {
             log.warn("Failed to warm GitHub social cache: {}", e.getMessage());
         }
         try {
+            gitHubService.getCommits(12);
+            log.info("GitHub commits cache warmed up");
+        } catch (Exception e) {
+            log.warn("Failed to warm GitHub commits cache: {}", e.getMessage());
+        }
+        try {
             notionService.getCmsContent();
             log.info("Notion CMS cache warmed up");
         } catch (Exception e) {
             log.warn("Failed to warm Notion CMS cache: {}", e.getMessage());
+        }
+        try {
+            trackingService.getStatistics();
+            log.info("Statistics cache warmed up");
+        } catch (Exception e) {
+            log.warn("Failed to warm statistics cache: {}", e.getMessage());
         }
         log.info("Cache warmup completed");
     }
