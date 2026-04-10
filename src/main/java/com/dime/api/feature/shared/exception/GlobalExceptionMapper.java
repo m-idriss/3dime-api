@@ -10,6 +10,7 @@ import jakarta.ws.rs.core.UriInfo;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
 import lombok.extern.slf4j.Slf4j;
+import io.smallrye.faulttolerance.api.RateLimitException;
 import org.eclipse.microprofile.faulttolerance.exceptions.TimeoutException;
 import org.jboss.resteasy.reactive.ClientWebApplicationException;
 
@@ -28,6 +29,19 @@ public class GlobalExceptionMapper implements ExceptionMapper<Throwable> {
     @Override
     public Response toResponse(Throwable exception) {
         String path = uriInfo != null ? uriInfo.getPath() : "unknown";
+
+        // Rate limit exceeded
+        if (exception instanceof RateLimitException) {
+            log.warn("Rate limit exceeded on {}: {}", path, exception.getMessage());
+            ErrorResponse errorResponse = new ErrorResponse(
+                    "Rate Limit",
+                    "Too many requests. Please try again later.",
+                    "RATE_LIMIT_EXCEEDED",
+                    null,
+                    429);
+            errorResponse.setPath(path);
+            return Response.status(429).entity(errorResponse).build();
+        }
 
         // Fault tolerance timeout — external service took too long
         if (exception instanceof TimeoutException) {
