@@ -1,20 +1,26 @@
 steps:
-  # Build and push Docker image using Jib
-  - name: 'gcr.io/cloud-builders/mvn'
+  # Build Docker image from Dockerfile
+  - name: 'gcr.io/cloud-builders/docker'
     args:
-      - 'clean'
-      - 'package'
-      - '-DskipTests'
-      - '-Dproject.gcp.project=$PROJECT_ID'
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/$_SERVICE_NAME:$SHORT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/$_SERVICE_NAME:latest'
+      - '.'
     env:
-      - 'MAVEN_OPTS=-Dmaven.wagon.http.retryHandler.class=standard'
+      - 'DOCKER_BUILDKIT=1'
 
-  - name: 'gcr.io/cloud-builders/mvn'
+  # Push to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
     args:
-      - 'jib:build'
-      - '-Dproject.gcp.project=$PROJECT_ID'
-      - '-Djib.to.image=gcr.io/$PROJECT_ID/$_SERVICE_NAME:$SHORT_SHA'
-      - '-Djib.to.image=gcr.io/$PROJECT_ID/$_SERVICE_NAME:latest'
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/$_SERVICE_NAME:$SHORT_SHA'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/$_SERVICE_NAME:latest'
 
 images:
   - 'gcr.io/$PROJECT_ID/$_SERVICE_NAME:$SHORT_SHA'
