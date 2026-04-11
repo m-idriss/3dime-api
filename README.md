@@ -16,7 +16,18 @@ Transform photos into calendar events with AI. [3dime.com](https://3dime.com) an
 
 ## ✨ Capabilities
 
-**🖼️ AI Image-to-Calendar** • **📊 GitHub Profiles** • **📝 Notion CMS** • **📈 Analytics** • **⚡ Quota Management** • **🔐 Firebase Auth** • **🛡️ Rate Limiting** • **📁 File Validation** • **🔒 Session Hardening** • **📋 CSP & OWASP**
+| Feature | Description |
+|---------|-------------|
+| 🖼️ **Image-to-Calendar** | AI-powered conversion of photos to `.ics` calendar files using Google Gemini |
+| 📊 **GitHub Integration** | Fetch user profiles, social accounts, and monthly commit statistics |
+| 📝 **Notion CMS** | Content management integration for tools and resources |
+| 📈 **Analytics & Tracking** | Usage statistics and conversion tracking persisted to Notion |
+| ⚡ **Quota Management** | Per-user rate limiting with FREE, PRO, and UNLIMITED plans |
+| 🔐 **Firebase Authentication** | Server-side ID token validation with automatic key rotation |
+| 🛡️ **Rate Limiting** | HTTP rate limiting on all public endpoints via SmallRye Fault Tolerance |
+| 📁 **File Validation** | Magic bytes verification for JPEG, PNG, PDF, HEIC formats |
+| 🔒 **Session Hardening** | SameSite=Strict cookies with encrypted session keys |
+| 📋 **Security Headers** | CSP, OWASP, HSTS, COOP, CORP, X-Frame-Options configured |
 
 ---
 
