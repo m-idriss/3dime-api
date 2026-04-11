@@ -1,0 +1,28 @@
+steps:
+  # Build and push Docker image using Jib
+  - name: 'gcr.io/cloud-builders/mvn'
+    args:
+      - 'clean'
+      - 'package'
+      - '-DskipTests'
+      - '-Dproject.gcp.project=$PROJECT_ID'
+    env:
+      - 'MAVEN_OPTS=-Dmaven.wagon.http.retryHandler.class=standard'
+
+  - name: 'gcr.io/cloud-builders/mvn'
+    args:
+      - 'jib:build'
+      - '-Dproject.gcp.project=$PROJECT_ID'
+      - '-Djib.to.image=gcr.io/$PROJECT_ID/$_SERVICE_NAME:$SHORT_SHA'
+      - '-Djib.to.image=gcr.io/$PROJECT_ID/$_SERVICE_NAME:latest'
+
+images:
+  - 'gcr.io/$PROJECT_ID/$_SERVICE_NAME:$SHORT_SHA'
+  - 'gcr.io/$PROJECT_ID/$_SERVICE_NAME:latest'
+
+substitutions:
+  _SERVICE_NAME: '3dime-api'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'N1_HIGHCPU_8'
