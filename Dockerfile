@@ -15,7 +15,8 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-# Copy uber-jar from builder
+# Copy uber-jar and bootstrap files from builder
+COPY --from=builder /build/target/3dime-api-runner.jar /app/3dime-api-runner.jar
 COPY --from=builder /build/target/quarkus /app/quarkus
 
 # Set labels
@@ -30,4 +31,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
 # Run the application
-ENTRYPOINT ["sh", "-c", "cd /app && java -Dquarkus.http.host=0.0.0.0 -Dquarkus.http.port=8080 -jar quarkus/3dime-api-runner.jar"]
+ENTRYPOINT ["java", "-Dquarkus.http.host=0.0.0.0", "-Dquarkus.http.port=8080", "-jar", "3dime-api-runner.jar"]
