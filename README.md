@@ -1,16 +1,17 @@
 # 3dime-api
 
-[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
-[![Quarkus](https://img.shields.io/badge/Quarkus-3.31.3-blue.svg)](https://quarkus.io/)
-[![Google Cloud](https://img.shields.io/badge/Google%20Cloud-Run-4285F4.svg)](https://cloud.google.com/run)
-[![Build](https://img.shields.io/badge/Build-Maven-C71A36.svg)](https://maven.apache.org/)
-[![API Status](https://img.shields.io/website?url=https%3A%2F%2Fapi.3dime.com%2Fhealth&label=API&up_message=online&down_message=offline)](https://api.3dime.com/health)
+[![Live API](https://img.shields.io/badge/Live_API-api.3dime.com-4285F4?style=for-the-badge)](https://api.3dime.com/health)
+[![Java](https://img.shields.io/badge/Java-21-orange?style=for-the-badge&logo=openjdk&logoColor=white)](https://www.oracle.com/java/)
+[![Quarkus](https://img.shields.io/badge/Quarkus-3.31.3-red?style=for-the-badge&logo=quarkus&logoColor=white)](https://quarkus.io/)
+[![Google Cloud](https://img.shields.io/badge/Google_Cloud-Run-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)](https://cloud.google.com/run)
+[![Maven](https://img.shields.io/badge/Maven-3.8%2B-C71A36?style=for-the-badge&logo=apachemaven&logoColor=white)](https://maven.apache.org/)
+[![Security](https://img.shields.io/badge/Security-Hardened-00D4AA?style=for-the-badge)](docs/security.md)
 
-> **Production-grade REST API** powering intelligent image-to-calendar conversion at scale
+**Production-grade REST API** powering AI-powered image-to-calendar conversion at scale. Built with Quarkus on Google Cloud Run, serving [3dime.com](https://3dime.com) and [photocalia.com](https://photocalia.com) with real-time conversions, GitHub integration, Notion CMS, and granular quota management.
 
-Transform photos into calendar events with AI. [3dime.com](https://3dime.com) and [photocalia.com](https://photocalia.com) rely on this high-performance API for real-time conversions, GitHub integration, Notion CMS, and granular quota management.
+**Security-first architecture:** Firebase ID token validation, rate limiting, file validation, CSP headers, and OWASP hardening included.
 
-**Built with security first.** Firebase authentication, rate limiting, file validation, CSP headers, and OWASP security hardening come standard.
+**Frontend:** [Photocalia](https://github.com/m-idriss/photocalia) (Angular SaaS)
 
 ---
 
