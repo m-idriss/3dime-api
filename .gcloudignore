@@ -1,0 +1,21 @@
+# Ignore pom.xml from buildpack detection
+# Force Cloud Build to use Dockerfile instead
+pom.xml
+
+# Standard ignore patterns
+.git
+.gitignore
+.gcloudignore
+README.md
+ROADMAP.md
+.env
+*.md
+.DS_Store
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+build/
+dist/
+*.egg-info/
