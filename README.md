@@ -1,4 +1,10 @@
+<div align="center">
+
 # 3dime-api
+
+</div>
+
+<div align="center">
 
 [![Live API](https://img.shields.io/badge/Live_API-api.3dime.com-4285F4?style=for-the-badge)](https://api.3dime.com/health)
 [![Java](https://img.shields.io/badge/Java-21-orange?style=for-the-badge&logo=openjdk&logoColor=white)](https://www.oracle.com/java/)
@@ -6,6 +12,8 @@
 [![Google Cloud](https://img.shields.io/badge/Google_Cloud-Run-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)](https://cloud.google.com/run)
 [![Maven](https://img.shields.io/badge/Maven-3.8%2B-C71A36?style=for-the-badge&logo=apachemaven&logoColor=white)](https://maven.apache.org/)
 [![Security](https://img.shields.io/badge/Security-Hardened-00D4AA?style=for-the-badge)](docs/security.md)
+
+</div>
 
 **Production-grade REST API** powering AI-powered image-to-calendar conversion at scale. Built with Quarkus on Google Cloud Run, serving [3dime.com](https://3dime.com) and [photocalia.com](https://photocalia.com) with real-time conversions, GitHub integration, Notion CMS, and granular quota management.
 
