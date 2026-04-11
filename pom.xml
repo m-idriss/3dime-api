@@ -42,6 +42,7 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <project.build.outputTimestamp>2024-01-01T00:00:00Z</project.build.outputTimestamp>
     <skipITs>true</skipITs>
+    <project.gcp.project>image-to-ics</project.gcp.project>
 
     <!-- Quarkus Platform -->
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
@@ -250,6 +251,46 @@
         <groupId>org.owasp</groupId>
         <artifactId>dependency-check-maven</artifactId>
         <version>11.1.1</version>
+      </plugin>
+      <plugin>
+        <groupId>com.google.cloud.tools</groupId>
+        <artifactId>jib-maven-plugin</artifactId>
+        <version>3.4.2</version>
+        <configuration>
+          <from>
+            <image>eclipse-temurin:21-jre-alpine</image>
+          </from>
+          <to>
+            <image>gcr.io/${project.gcp.project}/${project.artifactId}</image>
+            <tags>
+              <tag>latest</tag>
+              <tag>${project.version}</tag>
+            </tags>
+          </to>
+          <container>
+            <appRoot>/app</appRoot>
+            <entrypoint>
+              <shell>sh</shell>
+              <option>-c</option>
+              <option>cd /app &amp;&amp; java -Dquarkus.http.host=0.0.0.0 -Dquarkus.http.port=8080 -jar quarkus/3dime-api-runner.jar</option>
+            </entrypoint>
+            <ports>
+              <port>8080</port>
+            </ports>
+            <labels>
+              <service>3dime-api</service>
+              <version>${project.version}</version>
+            </labels>
+          </container>
+          <extraDirectories>
+            <paths>
+              <path>
+                <from>target/quarkus</from>
+                <into>/app</into>
+              </path>
+            </paths>
+          </extraDirectories>
+        </configuration>
       </plugin>
     </plugins>
   </build>
