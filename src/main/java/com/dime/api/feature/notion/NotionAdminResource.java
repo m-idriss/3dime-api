@@ -16,25 +16,23 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
 
-@Path("/notion")
-@Tag(name = "portfolio", description = "Notion CMS content management")
-@Extension(name = "x-smallrye-profile-public", value = "")
-public class NotionResource {
+@Path("/notion/cms")
+@Tag(name = "admin", description = "Administrative Notion CMS operations")
+@Extension(name = "x-smallrye-profile-admin", value = "")
+public class NotionAdminResource {
 
     @Inject
     NotionService notionService;
 
     @GET
-    @Path("/cms")
+    @Path("/refresh")
     @Produces(MediaType.APPLICATION_JSON)
-    @Operation(summary = "Get CMS content", description = "Fetches and groups content (tools, resources) from the Notion CMS database")
-    @APIResponse(responseCode = "200", description = "Content retrieved successfully", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = Map.class)))
+    @Operation(summary = "Forced refresh of CMS content", description = "Bypasses cache and fetches fresh content from Notion CMS database. Restricted to admin user.")
+    @APIResponse(responseCode = "200", description = "Content refreshed successfully", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = Map.class)))
     @APIResponse(responseCode = "502", description = "Failed to fetch content from Notion API")
-    @APIResponse(responseCode = "500", description = "Internal server error")
-    public Response getCmsContent() {
-        Map<String, List<NotionService.CmsItem>> content = notionService.getCmsContent();
-        return Response.ok(content)
-                .header("Cache-Control", "public, max-age=7200")
-                .build();
+    @APIResponse(responseCode = "401", description = "Unauthorized - admin login required")
+    public Response refreshCmsContent() {
+        Map<String, List<NotionService.CmsItem>> content = notionService.refreshCmsContent();
+        return Response.ok(content).build();
     }
 }
