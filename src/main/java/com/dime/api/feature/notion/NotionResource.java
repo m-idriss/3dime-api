@@ -37,4 +37,15 @@ public class NotionResource {
                 .header("Cache-Control", "public, max-age=7200")
                 .build();
     }
+
+    @GET
+    @Path("/cms/refresh")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Operation(summary = "Forced refresh of CMS content", description = "Bypasses cache and fetches fresh content from Notion CMS database")
+    @APIResponse(responseCode = "200", description = "Content refreshed successfully", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = Map.class)))
+    @APIResponse(responseCode = "502", description = "Failed to fetch content from Notion API")
+    public Response refreshCmsContent() {
+        Map<String, List<NotionService.CmsItem>> content = notionService.refreshCmsContent();
+        return Response.ok(content).build();
+    }
 }

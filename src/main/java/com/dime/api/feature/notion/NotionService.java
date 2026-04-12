@@ -60,6 +60,13 @@ public class NotionService {
         return cmsCache.get("default");
     }
 
+    public Map<String, List<CmsItem>> refreshCmsContent() {
+        log.info("Forcing refresh of Notion CMS content from API...");
+        Map<String, List<CmsItem>> content = fetchCmsContent();
+        cmsCache.put("default", content);
+        return content;
+    }
+
     public void warmFromFirestore() {
         if (firestoreCacheService == null) return;
         firestoreCacheService.read("notion-cms", new TypeReference<Map<String, List<CmsItem>>>() {})
@@ -92,6 +99,7 @@ public class NotionService {
             Map<String, List<CmsItem>> groupedContent = new HashMap<>();
 
             if (response.has("results") && response.get("results").isArray()) {
+                log.info("Parsing {} results from Notion", response.get("results").size());
                 for (JsonNode page : response.get("results")) {
                     JsonNode props = page.get("properties");
                     if (props == null)
@@ -107,6 +115,9 @@ public class NotionService {
                     groupedContent.computeIfAbsent(category, k -> new ArrayList<>()).add(item);
                 }
             }
+
+            int totalItems = groupedContent.values().stream().mapToInt(List::size).sum();
+            log.info("Fetch complete. Found {} items in {} categories.", totalItems, groupedContent.size());
 
             if (firestoreCacheService != null) firestoreCacheService.write("notion-cms", groupedContent);
             return groupedContent;

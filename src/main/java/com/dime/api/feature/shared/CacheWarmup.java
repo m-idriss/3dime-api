@@ -61,7 +61,7 @@ public class CacheWarmup {
             log.warn("Failed to warm GitHub commits cache: {}", e.getMessage());
         }
         try {
-            notionService.getCmsContent();
+            notionService.refreshCmsContent();
             log.info("Notion CMS cache refreshed from API");
         } catch (Exception e) {
             log.warn("Failed to warm Notion CMS cache: {}", e.getMessage());
