@@ -55,6 +55,20 @@ public class GitHubResource {
     }
 
     @GET
+    @Path("/release")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Operation(summary = "Get latest GitHub release", description = "Retrieves the latest release information for the repository")
+    @APIResponse(responseCode = "200", description = "Release information retrieved successfully")
+    @APIResponse(responseCode = "502", description = "Failed to fetch release from GitHub API")
+    @APIResponse(responseCode = "500", description = "Internal server error")
+    public Response getLatestRelease() {
+        log.info("GET /github/release endpoint called");
+        return Response.ok(gitHubService.getLatestRelease())
+                .header("Cache-Control", "public, max-age=86400")
+                .build();
+    }
+
+    @GET
     @Path("/commits")
     @Produces(MediaType.APPLICATION_JSON)
     @Operation(summary = "Get GitHub commit statistics", description = "Retrieves the authenticated GitHub user's commit statistics over a period")
