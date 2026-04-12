@@ -47,6 +47,7 @@ public class GitHubService {
   LoadingCache<String, GitHubUser> userCache;
   LoadingCache<String, JsonNode> socialCache;
   LoadingCache<Integer, List<Map<String, Object>>> commitsCache;
+  LoadingCache<String, JsonNode> releaseCache;
 
   @PostConstruct
   void initCaches() {
@@ -64,6 +65,11 @@ public class GitHubService {
         .refreshAfterWrite(Duration.ofHours(1))
         .expireAfterWrite(Duration.ofHours(24))
         .build(this::fetchCommits);
+
+    releaseCache = Caffeine.newBuilder()
+        .refreshAfterWrite(Duration.ofHours(6))
+        .expireAfterWrite(Duration.ofHours(24))
+        .build(key -> fetchLatestRelease());
   }
 
   public GitHubUser getUserInfo() {
@@ -72,6 +78,10 @@ public class GitHubService {
 
   public JsonNode getSocialAccounts() {
     return socialCache.get("default");
+  }
+
+  public JsonNode getLatestRelease() {
+    return releaseCache.get("default");
   }
 
   public List<Map<String, Object>> getCommits(int months) {
@@ -89,6 +99,8 @@ public class GitHubService {
         .ifPresent(social -> socialCache.put("default", social));
     firestoreCacheService.read("github-commits-12", new TypeReference<List<Map<String, Object>>>() {})
         .ifPresent(commits -> commitsCache.put(12, commits));
+    firestoreCacheService.read("github-release", JsonNode.class)
+        .ifPresent(release -> releaseCache.put("default", release));
   }
 
   private Optional<String> getAuthHeader() {
@@ -207,6 +219,24 @@ public class GitHubService {
       log.error("Unexpected error fetching GitHub commits for: {}", username, e);
       throw new ExternalServiceException("GitHub",
           "Unexpected error occurred while calling GitHub GraphQL API: " + e.getMessage(), e);
+    }
+  }
+
+  private JsonNode fetchLatestRelease() {
+    log.info("Fetching latest GitHub release for: {}/{}", username, "3dime-angular");
+    try {
+      JsonNode release = gitHubClient.getLatestRelease(getAuthHeader().orElse(null), username, "3dime-angular");
+      log.info("Successfully fetched latest release");
+      if (firestoreCacheService != null) firestoreCacheService.write("github-release", release);
+      return release;
+    } catch (WebApplicationException e) {
+      log.error("Failed to fetch latest release", e);
+      throw new ExternalServiceException("GitHub",
+          "Failed to fetch latest release from GitHub API. Status: " + e.getResponse().getStatus(), e);
+    } catch (Exception e) {
+      log.error("Unexpected error fetching latest release", e);
+      throw new ExternalServiceException("GitHub",
+          "Unexpected error occurred while calling GitHub API: " + e.getMessage(), e);
     }
   }
 }

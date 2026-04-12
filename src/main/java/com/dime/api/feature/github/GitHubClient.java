@@ -34,6 +34,15 @@ public interface GitHubClient {
     JsonNode postGraphql(@HeaderParam("Authorization") String token, Object query);
 
     @GET
+    @Path("/repos/{owner}/{repo}/releases/latest")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Retry(maxRetries = 3, delay = 200)
+    @Timeout(value = 5, unit = ChronoUnit.SECONDS)
+    JsonNode getLatestRelease(@HeaderParam("Authorization") String token,
+                              @PathParam("owner") String owner,
+                              @PathParam("repo") String repo);
+
+    @GET
     @Path("/rate_limit")
     @Produces(MediaType.APPLICATION_JSON)
     @Timeout(value = 2, unit = ChronoUnit.SECONDS)
