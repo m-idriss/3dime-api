@@ -1,7 +1,3 @@
-# Ignore pom.xml from buildpack detection
-# Force Cloud Build to use Dockerfile instead
-pom.xml
-
 # Standard ignore patterns
 .git
 .gitignore
