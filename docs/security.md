@@ -42,20 +42,30 @@ HTTP rate limiting via SmallRye Fault Tolerance (`@RateLimit`) prevents brute fo
 
 ### Implementation
 
-- **Annotation**: `@RateLimit(value = 10, window = 1, windowUnit = ChronoUnit.MINUTES)`
-- **Applied to**: Image converter (`/converter`), GitHub API (`/github/*`), Notion API (`/notion/*`)
-- **Response**: HTTP 429 (Too Many Requests) when limit exceeded
+Two mechanisms provide rate limiting:
+
+1. **@RateLimit Annotation** (SmallRye Fault Tolerance)
+   - Applied to: `POST /converter`, `GET /github/*`, `GET /notion/*`
+   - Syntax: `@RateLimit(value = 10, window = 1, windowUnit = ChronoUnit.MINUTES)`
+   - Tracks per-thread; effective for high-load endpoints
+
+2. **LoginRateLimitFilter** (JAX-RS ContainerRequestFilter)
+   - Applied to: `POST /j_security_check` (admin login)
+   - Tracks per-IP using `X-Forwarded-For` header (Cloud Run compatibility)
+   - Stores attempt timestamps in in-memory ConcurrentHashMap
+   - Cleans up old attempts automatically when new request arrives
 
 ### Rate Limits by Endpoint
 
-| Endpoint | Limit |
-|----------|-------|
-| `POST /converter` | 10 requests/minute per client |
-| `GET /github/*` | 10 requests/minute |
-| `GET /notion/*` | 10 requests/minute |
-| `POST /j_security_check` (admin login) | 5 requests/5 minutes |
+| Endpoint | Limit | Mechanism |
+|----------|-------|-----------|
+| `POST /converter` | 10 requests/minute | @RateLimit |
+| `GET /github/*` | 10 requests/minute | @RateLimit |
+| `GET /notion/*` | 10 requests/minute | @RateLimit |
+| `POST /j_security_check` (admin login) | 5 requests/5 minutes | LoginRateLimitFilter (per-IP) |
+| `GET /converter/quota-status` | 30 requests/minute | @RateLimit |
 
-**Note**: Rate limits are per-thread by default. For more sophisticated per-IP or per-user limits, consider implementing a custom rate limiter using Firestore counters.
+**Note on IP detection**: LoginRateLimitFilter checks `X-Forwarded-For` header first (Cloud Run proxy), then `X-Real-IP`, then falls back to connection IP. This ensures accurate per-IP rate limiting even behind reverse proxies.
 
 ---
 
