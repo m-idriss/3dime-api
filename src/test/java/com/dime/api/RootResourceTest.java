@@ -13,7 +13,7 @@ public class RootResourceTest {
     public void testRootPathRedirectsToLoginPage() {
         given()
             .redirects().follow(false)
-            .when().get("/")
+            .when().get("/v1/")
             .then()
                 .header("Location", endsWith("/login.html"));
     }

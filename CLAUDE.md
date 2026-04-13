@@ -50,8 +50,8 @@ This file provides context for AI assistants (Claude, Copilot, etc.) working on 
 │   │   │   ├── DimeApplication.java          # JAX-RS Application entry point
 │   │   │   └── feature/
 │   │   │       ├── converter/                # Image-to-calendar feature
-│   │   │       │   ├── ConverterResource.java    # POST /converter, GET /converter/quota-status, /statistics
-│   │   │       │   ├── UserQuotaResource.java    # GET|PATCH|DELETE /users/* (admin)
+│   │   │       │   ├── ConverterResource.java    # POST /v1/converter, GET /v1/converter/quota-status, /v1/converter/statistics
+│   │   │       │   ├── UserQuotaResource.java    # GET|PATCH|DELETE /v1/users/* (admin)
 │   │   │       │   ├── GeminiService.java        # Gemini API integration + token caching
 │   │   │       │   ├── GeminiClient.java         # MicroProfile REST client interface
 │   │   │       │   ├── QuotaService.java         # Firestore-backed quota logic
@@ -62,16 +62,16 @@ This file provides context for AI assistants (Claude, Copilot, etc.) working on 
 │   │   │       │   ├── UserQuota.java            # Firestore document model
 │   │   │       │   └── PlanType.java             # Enum: FREE | PRO | UNLIMITED
 │   │   │       ├── github/                   # GitHub integration feature
-│   │   │       │   ├── GitHubResource.java       # GET /github/user, /social, /commits
+│   │   │       │   ├── GitHubResource.java       # GET /v1/github/user, /social, /commits
 │   │   │       │   ├── GitHubService.java        # Business logic + @CacheResult
 │   │   │       │   ├── GitHubClient.java         # MicroProfile REST client interface
 │   │   │       │   └── GitHubUser.java           # Response model
 │   │   │       ├── notion/                   # Notion CMS feature
-│   │   │       │   ├── NotionResource.java        # GET /notion/cms
+│   │   │       │   ├── NotionResource.java        # GET /v1/notion/cms
 │   │   │       │   ├── NotionService.java         # Business logic + @CacheResult
 │   │   │       │   └── NotionClient.java          # MicroProfile REST client interface
 │   │   │       └── shared/                   # Cross-cutting concerns
-│   │   │           ├── RootResource.java          # GET / → redirect to /api-docs
+│   │   │           ├── RootResource.java          # GET /v1/ → redirect to /api-docs
 │   │   │           ├── config/
 │   │   │           │   ├── DotEnvConfigSource.java  # Loads .env file (ordinal 290)
 │   │   │           │   └── JacksonCustomizer.java   # JSON serialization config
@@ -140,7 +140,7 @@ java -jar target/quarkus-app/quarkus-run.jar
 ```
 
 Dev mode is the primary local workflow. The app will be available at:
-- API: `http://localhost:8080`
+- API: `http://localhost:8080/v1`
 - Swagger UI: `http://localhost:8080/api-docs`
 - Health: `http://localhost:8080/health`
 
@@ -229,27 +229,27 @@ Quarkus profile prefixes:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/converter` | Convert images to `.ics` (body: `ConverterRequest`) |
-| `GET` | `/converter/quota-status?userId=` | Get user quota status |
-| `GET` | `/converter/statistics` | Global usage statistics |
-| `GET` | `/github/user` | GitHub profile info |
-| `GET` | `/github/social` | GitHub social accounts |
-| `GET` | `/github/commits?months=N` | Monthly commit stats (1-60 months) |
-| `GET` | `/notion/cms` | CMS content grouped by category |
+| `POST` | `/v1/converter` | Convert images to `.ics` (body: `ConverterRequest`) |
+| `GET` | `/v1/converter/quota-status?userId=` | Get user quota status |
+| `GET` | `/v1/converter/statistics` | Global usage statistics |
+| `GET` | `/v1/github/user` | GitHub profile info |
+| `GET` | `/v1/github/social` | GitHub social accounts |
+| `GET` | `/v1/github/commits?months=N` | Monthly commit stats (1-60 months) |
+| `GET` | `/v1/notion/cms` | CMS content grouped by category |
 | `GET` | `/health` | Combined health check |
 
 ### Admin (requires `admin` role via form login)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/users` | List all user quota records |
-| `GET` | `/users/{userId}` | Get specific user quota |
-| `PATCH` | `/users/{userId}` | Update user quota fields |
-| `DELETE` | `/users/{userId}` | Remove user record |
-| `GET` | `/users/sync-notion` | Push all users: Firestore → Notion |
-| `GET` | `/users/sync-firebase` | Pull all users: Notion → Firestore |
-| `GET` | `/users/sync-notion-single?userId=` | Push single user to Notion |
-| `GET` | `/users/sync-firebase-single?userId=` | Pull single user from Notion |
+| `GET` | `/v1/users` | List all user quota records |
+| `GET` | `/v1/users/{userId}` | Get specific user quota |
+| `PATCH` | `/v1/users/{userId}` | Update user quota fields |
+| `DELETE` | `/v1/users/{userId}` | Remove user record |
+| `GET` | `/v1/users/sync-notion` | Push all users: Firestore → Notion |
+| `GET` | `/v1/users/sync-firebase` | Pull all users: Notion → Firestore |
+| `GET` | `/v1/users/sync-notion-single?userId=` | Push single user to Notion |
+| `GET` | `/v1/users/sync-firebase-single?userId=` | Pull single user from Notion |
 | `GET` | `/api-docs` | Swagger UI |
 | `GET` | `/api-schema` | OpenAPI JSON |
 | `GET` | `/` | Redirect to `/api-docs` |

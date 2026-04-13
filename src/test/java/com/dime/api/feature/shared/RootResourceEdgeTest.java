@@ -11,7 +11,7 @@ public class RootResourceEdgeTest {
     public void testLogoutRedirectsToLoginPage() {
         given()
                 .redirects().follow(false)
-                .when().get("/logout")
+                .when().get("/v1/logout")
                 .then()
                 .header("Location", endsWith("/login.html"));
     }
@@ -20,7 +20,7 @@ public class RootResourceEdgeTest {
     public void testRootRedirectsToLoginPageWhenNotLoggedIn() {
         given()
                 .redirects().follow(false)
-                .when().get("/")
+                .when().get("/v1/")
                 .then()
                 .header("Location", endsWith("/login.html"));
     }

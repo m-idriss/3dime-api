@@ -16,7 +16,7 @@ public class NotionAdminResourceTest {
         // Unauthenticated users should be blocked (401 or 302 redirect to login)
         given()
                 .redirects().follow(false)
-                .when().get("/notion/cms/refresh")
+                .when().get("/v1/notion/cms/refresh")
                 .then()
                 .statusCode(anyOf(is(401), is(302)));
     }
@@ -27,7 +27,7 @@ public class NotionAdminResourceTest {
         // Authenticated admin should be able to trigger refresh
         // 200 (success) or 502 (Notion API unavailable in test context) are acceptable
         given()
-                .when().get("/notion/cms/refresh")
+                .when().get("/v1/notion/cms/refresh")
                 .then()
                 .statusCode(anyOf(is(200), is(502)));
     }

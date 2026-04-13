@@ -13,7 +13,7 @@ public class GitHubResourceEdgeTest {
     @Test
     public void testSocialAccountsEndpointReturnsValidStatusCode() {
         Response response = given()
-                .when().get("/github/social")
+                .when().get("/v1/github/social")
                 .then()
                 .statusCode(anyOf(is(200), is(502)))
                 .extract().response();
@@ -26,7 +26,7 @@ public class GitHubResourceEdgeTest {
     public void testCommitsEndpointHandlesInvalidMonths() {
         Response response = given()
                 .queryParam("months", "invalid")
-                .when().get("/github/commits")
+                .when().get("/v1/github/commits")
                 .then()
                 .statusCode(anyOf(is(400), is(502), is(200)))
                 .extract().response();
