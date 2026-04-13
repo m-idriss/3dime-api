@@ -16,7 +16,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
 
-@Path("/notion/cms")
+@Path("/notion")
 @Tag(name = "admin", description = "Administrative Notion CMS operations")
 @Extension(name = "x-smallrye-profile-admin", value = "")
 public class NotionAdminResource {
@@ -25,7 +25,7 @@ public class NotionAdminResource {
     NotionService notionService;
 
     @GET
-    @Path("/refresh")
+    @Path("/cms/refresh")
     @Produces(MediaType.APPLICATION_JSON)
     @Operation(summary = "Forced refresh of CMS content", description = "Bypasses cache and fetches fresh content from Notion CMS database. Restricted to admin user.")
     @APIResponse(responseCode = "200", description = "Content refreshed successfully", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = Map.class)))

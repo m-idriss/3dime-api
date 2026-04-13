@@ -15,6 +15,7 @@ public class NotionAdminResourceTest {
     public void testRefreshEndpoint_Unauthorized() {
         // Unauthenticated users should be blocked (401 or 302 redirect to login)
         given()
+                .redirects().follow(false)
                 .when().get("/notion/cms/refresh")
                 .then()
                 .statusCode(anyOf(is(401), is(302)));
