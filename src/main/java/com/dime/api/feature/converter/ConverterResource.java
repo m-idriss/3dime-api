@@ -28,6 +28,7 @@ import io.smallrye.faulttolerance.api.RateLimit;
 import java.io.IOException;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -168,6 +169,18 @@ public class ConverterResource {
                     .entity(Map.of("error", "Internal server error"))
                     .build();
         }
+    }
+
+    @GET
+    @Path("/plans")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Operation(summary = "Get available plans", description = "Returns available plans and their quota limits")
+    @APIResponse(responseCode = "200", description = "Plans retrieved",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON,
+            schema = @Schema(implementation = QuotaService.PlanInfo.class)))
+    public List<QuotaService.PlanInfo> getPlans() {
+        log.info("GET /converter/plans called");
+        return quotaService.getQuotaLimits();
     }
 
     @GET

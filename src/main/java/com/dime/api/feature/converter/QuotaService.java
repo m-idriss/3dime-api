@@ -2,14 +2,18 @@ package com.dime.api.feature.converter;
 
 import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.*;
+import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -21,10 +25,26 @@ public class QuotaService {
 
     private static final String COLLECTION_NAME = "users";
     private static final PlanType DEFAULT_PLAN = PlanType.FREE;
-    private static final Map<PlanType, Long> QUOTA_LIMITS = Map.of(
-            PlanType.FREE, 10L,
-            PlanType.PRO, 100L,
-            PlanType.UNLIMITED, 1000000L);
+
+    @ConfigProperty(name = "quota.limit.free", defaultValue = "10")
+    long quotaLimitFree;
+
+    @ConfigProperty(name = "quota.limit.pro", defaultValue = "100")
+    long quotaLimitPro;
+
+    @ConfigProperty(name = "quota.limit.unlimited", defaultValue = "1000000")
+    long quotaLimitUnlimited;
+
+    private volatile Map<PlanType, Long> quotaLimits;
+
+    @PostConstruct
+    void init() {
+        this.quotaLimits = Map.of(
+                PlanType.FREE, quotaLimitFree,
+                PlanType.PRO, quotaLimitPro,
+                PlanType.UNLIMITED, quotaLimitUnlimited);
+        log.info("Quota limits initialized: {}", quotaLimits);
+    }
 
     @Inject
     Firestore firestore;
@@ -36,6 +56,24 @@ public class QuotaService {
     }
 
     public record UserQuotaWrapper(String userId, UserQuota quota) {
+    }
+
+    public record PlanInfo(PlanType plan, long limit) {
+    }
+
+    public List<PlanInfo> getQuotaLimits() {
+        return quotaLimits.entrySet().stream()
+                .map(e -> new PlanInfo(e.getKey(), e.getValue()))
+                .sorted(Comparator.comparing(PlanInfo::limit))
+                .toList();
+    }
+
+    public void updateQuotaLimit(PlanType plan, long newLimit) {
+        EnumMap<PlanType, Long> mutable = new EnumMap<>(PlanType.class);
+        mutable.putAll(quotaLimits);
+        mutable.put(plan, newLimit);
+        this.quotaLimits = Map.copyOf(mutable);
+        log.info("Updated quota limit for {}: {}", plan, newLimit);
     }
 
     public QuotaCheckResult checkQuota(@NonNull String userId) {
@@ -59,7 +97,7 @@ public class QuotaService {
                 userQuota.quotaUsed = 0;
             }
 
-            long limit = QUOTA_LIMITS.getOrDefault(userQuota.getPlanType(), 10L);
+            long limit = quotaLimits.getOrDefault(userQuota.getPlanType(), 10L);
             long remaining = Math.max(0, limit - userQuota.quotaUsed);
             boolean allowed = userQuota.quotaUsed < limit;
 
@@ -133,7 +171,7 @@ public class QuotaService {
         UserQuota newUser = new UserQuota(
                 DEFAULT_PLAN,
                 0,
-                QUOTA_LIMITS.get(DEFAULT_PLAN),
+                quotaLimits.get(DEFAULT_PLAN),
                 now,
                 now,
                 now);
@@ -147,7 +185,7 @@ public class QuotaService {
         UserQuota newUser = new UserQuota(
                 DEFAULT_PLAN,
                 1, // Start with 1 used
-                QUOTA_LIMITS.get(DEFAULT_PLAN),
+                quotaLimits.get(DEFAULT_PLAN),
                 now,
                 now,
                 now);
@@ -281,7 +319,7 @@ public class QuotaService {
             Timestamp periodStart = Timestamp.ofTimeSecondsAndNanos(data.lastReset().getEpochSecond(),
                     data.lastReset().getNano());
 
-            long limit = QUOTA_LIMITS.getOrDefault(data.plan(), 10L);
+            long limit = quotaLimits.getOrDefault(data.plan(), 10L);
 
             firestore.runTransaction(transaction -> {
                 DocumentSnapshot snapshot = transaction.get(docRef).get();

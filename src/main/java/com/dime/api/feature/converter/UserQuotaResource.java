@@ -70,6 +70,28 @@ public class UserQuotaResource {
         return Response.noContent().build();
     }
 
+    @GET
+    @Path("/plans")
+    @Operation(summary = "Get plan limits", description = "Returns the current quota limits for each plan")
+    @APIResponse(responseCode = "200", description = "Plan limits retrieved",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON,
+            schema = @Schema(implementation = QuotaService.PlanInfo.class, type = SchemaType.ARRAY)))
+    public List<QuotaService.PlanInfo> getPlans() {
+        log.info("GET /users/plans called");
+        return quotaService.getQuotaLimits();
+    }
+
+    @PUT
+    @Path("/plans/{plan}")
+    @Operation(summary = "Update plan limit", description = "Updates the quota limit for a specific plan (in-memory, resets on restart)")
+    @APIResponse(responseCode = "204", description = "Plan limit updated")
+    public Response updatePlanLimit(@PathParam("plan") String plan, @QueryParam("limit") @NotNull long limit) {
+        log.info("PUT /users/plans/{} called with limit={}", plan, limit);
+        PlanType planType = PlanType.fromString(plan);
+        quotaService.updateQuotaLimit(planType, limit);
+        return Response.noContent().build();
+    }
+
     @POST
     @Path("/sync-notion")
     @Operation(summary = "Sync all to Notion", description = "Triggers a full synchronization of all user quotas from Firestore to Notion.")
