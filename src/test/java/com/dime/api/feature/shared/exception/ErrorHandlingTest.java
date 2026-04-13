@@ -15,7 +15,7 @@ public class ErrorHandlingTest {
         given()
             .contentType(ContentType.JSON)
             .body("{\"files\":[]}")  // Empty files array should trigger validation error
-            .when().post("/converter")
+            .when().post("/v1/converter")
             .then()
                 .statusCode(400)
                 .body("success", is(false))
@@ -29,7 +29,7 @@ public class ErrorHandlingTest {
         given()
             .contentType(ContentType.JSON)
             .body("{\"invalid\": \"json\"}")  // Invalid request body
-            .when().post("/converter")
+            .when().post("/v1/converter")
             .then()
                 .statusCode(400)
                 .body("success", is(false))
@@ -39,7 +39,7 @@ public class ErrorHandlingTest {
     @Test
     public void testGitHubInvalidMonthsParameter() {
         given()
-            .when().get("/github/commits?months=invalid")
+            .when().get("/v1/github/commits?months=invalid")
             .then()
                 .statusCode(400)
                 .body("success", is(false))
@@ -50,7 +50,7 @@ public class ErrorHandlingTest {
     @Test
     public void testGitHubMonthsOutOfRange() {
         given()
-            .when().get("/github/commits?months=100")
+            .when().get("/v1/github/commits?months=100")
             .then()
                 .statusCode(400)
                 .body("success", is(false))

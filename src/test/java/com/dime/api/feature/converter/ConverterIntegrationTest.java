@@ -16,7 +16,7 @@ public class ConverterIntegrationTest {
         given()
             .contentType(ContentType.JSON)
             .body("{\"files\":[],\"userId\":\"test-user\"}")
-            .when().post("/converter")
+            .when().post("/v1/converter")
             .then()
                 .statusCode(400)
                 .body("success", is(false))
@@ -44,7 +44,7 @@ public class ConverterIntegrationTest {
         given()
             .contentType(ContentType.JSON)
             .body(validRequest)
-            .when().post("/converter")
+            .when().post("/v1/converter")
             .then()
                 .statusCode(anyOf(is(200), is(422), is(502))) // Accept various responses depending on config
                 .body("success", notNullValue())
@@ -68,7 +68,7 @@ public class ConverterIntegrationTest {
         given()
             .contentType(ContentType.JSON)
             .body(invalidRequest)
-            .when().post("/converter")
+            .when().post("/v1/converter")
             .then()
                 .statusCode(400)
                 .body("success", is(false))
@@ -80,7 +80,7 @@ public class ConverterIntegrationTest {
     public void testQuotaStatusEndpointWithValidUser() {
         given()
             .param("userId", "test-user")
-            .when().get("/converter/quota-status")
+            .when().get("/v1/converter/quota-status")
             .then()
                 .statusCode(anyOf(is(200), is(404))) // User may or may not exist
                 .body(notNullValue());
@@ -89,7 +89,7 @@ public class ConverterIntegrationTest {
     @Test 
     public void testQuotaStatusEndpointWithoutUserId() {
         given()
-            .when().get("/converter/quota-status")
+            .when().get("/v1/converter/quota-status")
             .then()
                 .statusCode(400); // Bad Request due to missing required parameter
     }
@@ -98,7 +98,7 @@ public class ConverterIntegrationTest {
     public void testQuotaStatusEndpointWithEmptyUserId() {
         given()
             .param("userId", "")
-            .when().get("/converter/quota-status")
+            .when().get("/v1/converter/quota-status")
             .then()
                 .statusCode(400); // Bad Request due to empty required parameter
     }

@@ -13,7 +13,7 @@ public class NotionResourceTest {
     public void testCmsContentEndpointReturnsValidStatusCode() {
         // Endpoint returns 200 (success/empty) or 502 (Notion API unavailable in test context)
         io.restassured.response.Response response = given()
-                .when().get("/notion/cms")
+                .when().get("/v1/notion/cms")
                 .then()
                 .statusCode(anyOf(is(200), is(502)))
                 .extract().response();

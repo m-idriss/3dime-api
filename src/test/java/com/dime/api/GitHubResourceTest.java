@@ -19,7 +19,7 @@ public class GitHubResourceTest {
         // Test can return either 200 (success) or 502 (GitHub API failure/rate limit)
         // All external API errors are converted to 502 Bad Gateway
         Response response = given()
-          .when().get("/github/user")
+          .when().get("/v1/github/user")
           .then()
              .statusCode(anyOf(
                 is(200),
