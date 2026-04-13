@@ -252,7 +252,7 @@ Quarkus profile prefixes:
 | `GET` | `/v1/users/sync-firebase-single?userId=` | Pull single user from Notion |
 | `GET` | `/api-docs` | Swagger UI |
 | `GET` | `/api-schema` | OpenAPI JSON |
-| `GET` | `/` | Redirect to `/api-docs` |
+| `GET` | `/v1/` | Redirect to `/api-docs` |
 
 ### Authentication
 
