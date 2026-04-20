@@ -245,6 +245,53 @@ public class QuotaService {
         }
     }
 
+    /**
+     * Updates the plan for a user, adjusting their quota limit accordingly.
+     * Called by the Stripe webhook handler after a subscription lifecycle event.
+     */
+    public void updateUserPlan(@NonNull String userId, @NonNull PlanType plan) {
+        try {
+            long newLimit = quotaLimits.getOrDefault(plan, quotaLimitFree);
+            Timestamp now = Timestamp.now();
+
+            DocumentReference docRef = firestore.collection(COLLECTION_NAME).document(userId);
+            firestore.runTransaction(transaction -> {
+                DocumentSnapshot snapshot = transaction.get(docRef).get();
+                if (!snapshot.exists()) {
+                    // Create user if not exists (e.g., paid before first free use)
+                    UserQuota newUser = new UserQuota(plan, 0, newLimit, now, now, now);
+                    transaction.set(docRef, newUser);
+                } else {
+                    transaction.update(docRef,
+                            "plan", plan.name(),
+                            "quotaLimit", newLimit,
+                            "updatedAt", now);
+                }
+                return null;
+            }).get();
+
+            log.info("Updated plan for user {} → {} (limit={})", userId, plan, newLimit);
+
+            // Async sync to Notion (non-blocking)
+            try {
+                DocumentSnapshot snapshot = docRef.get().get();
+                if (snapshot.exists()) {
+                    UserQuota quota = snapshot.toObject(UserQuota.class);
+                    if (quota != null) {
+                        notionQuotaService.syncToNotion(userId, quota.quotaUsed, plan,
+                                quota.periodStart != null ? quota.periodStart.toDate().toInstant()
+                                        : java.time.Instant.now());
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Failed to sync plan update to Notion for user {} (non-blocking)", userId, e);
+            }
+
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Error updating plan for user {}", userId, e);
+        }
+    }
+
     public void deleteQuota(@NonNull String userId) {
         try {
             firestore.collection(COLLECTION_NAME).document(userId).delete().get();

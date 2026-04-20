@@ -122,6 +122,11 @@
       <artifactId>firebase-admin</artifactId>
       <version>9.8.0</version>
     </dependency>
+    <dependency>
+      <groupId>com.stripe</groupId>
+      <artifactId>stripe-java</artifactId>
+      <version>27.4.0</version>
+    </dependency>
     <!-- Source: https://mvnrepository.com/artifact/org.mockito/mockito-core -->
     <dependency>
       <groupId>org.mockito</groupId>

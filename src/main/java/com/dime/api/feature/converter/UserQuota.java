@@ -20,6 +20,10 @@ public class UserQuota {
     public Timestamp createdAt;
     public Timestamp updatedAt;
 
+    // Stripe subscription tracking
+    public String stripeCustomerId;
+    public String stripeSubscriptionId;
+
     // Constructor that takes PlanType for backward compatibility
     public UserQuota(PlanType planType, long quotaUsed, long quotaLimit, 
                      Timestamp periodStart, Timestamp createdAt, Timestamp updatedAt) {
