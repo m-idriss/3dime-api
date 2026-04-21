@@ -56,7 +56,7 @@ class FirestoreHealthCheckTest {
         when(check.firestore.collection("users")).thenReturn(collection);
         when(collection.limit(1)).thenReturn(query);
         when(query.get()).thenReturn(future);
-        when(future.get(500, TimeUnit.MILLISECONDS)).thenThrow(new RuntimeException("connection refused"));
+        when(future.get(2, TimeUnit.SECONDS)).thenThrow(new RuntimeException("connection refused"));
 
         HealthCheckResponse response = check.doCheck();
 
