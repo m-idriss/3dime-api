@@ -21,23 +21,23 @@ import java.util.Optional;
 @ApplicationScoped
 public class StripeService {
 
-    @ConfigProperty(name = "stripe.api.key", defaultValue = "")
-    String apiKey;
+    @ConfigProperty(name = "stripe.api.key")
+    Optional<String> apiKey;
 
-    @ConfigProperty(name = "stripe.webhook.secret", defaultValue = "")
-    String webhookSecret;
+    @ConfigProperty(name = "stripe.webhook.secret")
+    Optional<String> webhookSecret;
 
-    @ConfigProperty(name = "stripe.price.pro.monthly", defaultValue = "")
-    String pricePrMonthly;
+    @ConfigProperty(name = "stripe.price.pro.monthly")
+    Optional<String> pricePrMonthly;
 
-    @ConfigProperty(name = "stripe.price.pro.yearly", defaultValue = "")
-    String pricePrYearly;
+    @ConfigProperty(name = "stripe.price.pro.yearly")
+    Optional<String> pricePrYearly;
 
-    @ConfigProperty(name = "stripe.price.business.monthly", defaultValue = "")
-    String priceBusinessMonthly;
+    @ConfigProperty(name = "stripe.price.business.monthly")
+    Optional<String> priceBusinessMonthly;
 
-    @ConfigProperty(name = "stripe.price.business.yearly", defaultValue = "")
-    String priceBusinessYearly;
+    @ConfigProperty(name = "stripe.price.business.yearly")
+    Optional<String> priceBusinessYearly;
 
     @ConfigProperty(name = "stripe.success.url", defaultValue = "https://photocalia.com/subscription/success")
     String successUrl;
@@ -47,19 +47,14 @@ public class StripeService {
 
     @PostConstruct
     void init() {
-        if (apiKey != null && !apiKey.isBlank()) {
-            Stripe.apiKey = apiKey;
+        if (apiKey.filter(k -> !k.isBlank()).isPresent()) {
+            Stripe.apiKey = apiKey.get();
             log.info("Stripe SDK initialised");
         } else {
             log.warn("STRIPE_SECRET_KEY not configured — subscription checkout will be unavailable");
         }
     }
 
-    /**
-     * Creates a Stripe Checkout Session for the given plan and billing cycle.
-     * The statement descriptor suffix is set to "PHOTOCALIA" so customers see
-     * "3DIME PHOTOCALIA" on their bank statement instead of just "3DIME".
-     */
     public String createCheckoutSession(String planId, String billingCycle, String userId, String email)
             throws StripeException {
 
@@ -95,18 +90,12 @@ public class StripeService {
         return session.getUrl();
     }
 
-    /**
-     * Validates and constructs a Stripe Event from a webhook payload.
-     * Throws SignatureVerificationException if the signature is invalid.
-     */
     public Event constructWebhookEvent(String payload, String sigHeader) throws SignatureVerificationException {
-        return Webhook.constructEvent(payload, sigHeader, webhookSecret);
+        String secret = webhookSecret.filter(s -> !s.isBlank())
+                .orElseThrow(() -> new IllegalStateException("STRIPE_WEBHOOK_SECRET not configured"));
+        return Webhook.constructEvent(payload, sigHeader, secret);
     }
 
-    /**
-     * Extracts userId from Stripe Subscription metadata and maps the Stripe
-     * plan status to a {@link PlanType}.
-     */
     public Optional<Map.Entry<String, PlanType>> resolveUserPlanFromSubscription(Event event) {
         try {
             Subscription subscription = (Subscription) event.getDataObjectDeserializer()
@@ -140,10 +129,14 @@ public class StripeService {
 
     private String resolvePriceId(String planId, String billingCycle) {
         return switch (planId + "_" + billingCycle) {
-            case "pro_monthly" -> pricePrMonthly;
-            case "pro_yearly" -> pricePrYearly;
-            case "business_monthly" -> priceBusinessMonthly;
-            case "business_yearly" -> priceBusinessYearly;
+            case "pro_monthly" -> pricePrMonthly.orElseThrow(() ->
+                    new IllegalStateException("STRIPE_PRICE_PRO_MONTHLY not configured"));
+            case "pro_yearly" -> pricePrYearly.orElseThrow(() ->
+                    new IllegalStateException("STRIPE_PRICE_PRO_YEARLY not configured"));
+            case "business_monthly" -> priceBusinessMonthly.orElseThrow(() ->
+                    new IllegalStateException("STRIPE_PRICE_BUSINESS_MONTHLY not configured"));
+            case "business_yearly" -> priceBusinessYearly.orElseThrow(() ->
+                    new IllegalStateException("STRIPE_PRICE_BUSINESS_YEARLY not configured"));
             default -> throw new IllegalArgumentException(
                     "Unknown plan/cycle combination: " + planId + "/" + billingCycle);
         };
