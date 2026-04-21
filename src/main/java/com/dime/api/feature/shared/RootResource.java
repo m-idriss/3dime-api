@@ -15,7 +15,7 @@ public class RootResource {
     @Operation(hidden = true)
     public Response redirectToApiDocs() {
         return Response
-                .temporaryRedirect(URI.create("/api-docs"))
+                .temporaryRedirect(URI.create("/v1/api-docs"))
                 .build();
     }
 
