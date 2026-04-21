@@ -78,10 +78,6 @@ public class StripeService {
                                 .putMetadata("userId", userId)
                                 .putMetadata("planId", planId)
                                 .build())
-                .setPaymentIntentData(
-                        SessionCreateParams.PaymentIntentData.builder()
-                                .setStatementDescriptorSuffix("PHOTOCALIA")
-                                .build())
                 .build();
 
         Session session = Session.create(params);
