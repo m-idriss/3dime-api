@@ -103,7 +103,7 @@ public class QuotaService {
 
             return new QuotaCheckResult(allowed, remaining, limit, userQuota.getPlanType());
 
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (Exception e) {
             log.error("Error checking quota for user {}", userId, e);
             // Default allow on error to not block users
             return new QuotaCheckResult(true, -1, -1, DEFAULT_PLAN);
@@ -145,7 +145,7 @@ public class QuotaService {
                 log.warn("Failed to sync to Notion for user {} (non-blocking)", userId, e);
             }
 
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (Exception e) {
             log.error("Error incrementing usage for user {}", userId, e);
         }
     }
@@ -217,7 +217,7 @@ public class QuotaService {
                     .stream()
                     .map(doc -> new UserQuotaWrapper(doc.getId(), doc.toObject(UserQuota.class)))
                     .collect(Collectors.toList());
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (Exception e) {
             log.error("Error fetching all user quotas", e);
             return List.of();
         }
@@ -240,7 +240,7 @@ public class QuotaService {
                 log.warn("Failed to sync to Notion for user {} after update (non-blocking)", userId, e);
             }
 
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (Exception e) {
             log.error("Error updating quota for user {}", userId, e);
         }
     }
@@ -287,7 +287,7 @@ public class QuotaService {
                 log.warn("Failed to sync plan update to Notion for user {} (non-blocking)", userId, e);
             }
 
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (Exception e) {
             log.error("Error updating plan for user {}", userId, e);
         }
     }
@@ -304,7 +304,7 @@ public class QuotaService {
                 log.warn("Failed to delete from Notion for user {} (non-blocking)", userId, e);
             }
 
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (Exception e) {
             log.error("Error deleting quota for user {}", userId, e);
         }
     }

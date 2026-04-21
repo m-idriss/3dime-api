@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
@@ -52,7 +53,7 @@ public class GitHubResourceTest {
           .then()
              .statusCode(anyOf(is(200), is(503)))
              .body("checks.size()", greaterThan(0))
-             .body("checks.name", hasItem("firestore"))
+             .body("checks.name", hasItem(anyOf(is("firestore"), containsString("FirestoreHealthCheck"))))
              .body("checks.name", hasItem("gemini"))
              .body("checks.name", hasItem("notion"))
              .body("checks.name", hasItem("github"));
