@@ -39,11 +39,26 @@ public class StripeService {
     @ConfigProperty(name = "stripe.price.business.yearly")
     Optional<String> priceBusinessYearly;
 
+    @ConfigProperty(name = "stripe.price.coffee")
+    Optional<String> priceCoffee;
+
+    @ConfigProperty(name = "stripe.price.snack")
+    Optional<String> priceSnack;
+
+    @ConfigProperty(name = "stripe.price.meal")
+    Optional<String> priceMeal;
+
     @ConfigProperty(name = "stripe.success.url", defaultValue = "https://photocalia.com/subscription/success")
     String successUrl;
 
     @ConfigProperty(name = "stripe.cancel.url", defaultValue = "https://photocalia.com/pricing")
     String cancelUrl;
+
+    @ConfigProperty(name = "stripe.donation.success.url", defaultValue = "https://photocalia.com/donation/success")
+    String donationSuccessUrl;
+
+    @ConfigProperty(name = "stripe.donation.cancel.url", defaultValue = "https://photocalia.com/pricing")
+    String donationCancelUrl;
 
     @PostConstruct
     void init() {
@@ -83,6 +98,33 @@ public class StripeService {
         Session session = Session.create(params);
         log.info("Created Stripe Checkout Session {} for user {} (plan={}, cycle={})",
                 session.getId(), userId, planId, billingCycle);
+        return session.getUrl();
+    }
+
+    public String createDonationSession(String productId, String email) throws StripeException {
+        String priceId = switch (productId) {
+            case "coffee" -> priceCoffee.orElseThrow(() -> new IllegalStateException("STRIPE_PRICE_COFFEE not configured"));
+            case "snack" -> priceSnack.orElseThrow(() -> new IllegalStateException("STRIPE_PRICE_SNACK not configured"));
+            case "meal" -> priceMeal.orElseThrow(() -> new IllegalStateException("STRIPE_PRICE_MEAL not configured"));
+            default -> throw new IllegalArgumentException("Unknown donation product: " + productId);
+        };
+
+        SessionCreateParams.Builder builder = SessionCreateParams.builder()
+                .setMode(SessionCreateParams.Mode.PAYMENT)
+                .setSuccessUrl(donationSuccessUrl + "?session_id={CHECKOUT_SESSION_ID}")
+                .setCancelUrl(donationCancelUrl)
+                .addLineItem(
+                        SessionCreateParams.LineItem.builder()
+                                .setPrice(priceId)
+                                .setQuantity(1L)
+                                .build());
+
+        if (email != null && !email.isBlank()) {
+            builder.setCustomerEmail(email);
+        }
+
+        Session session = Session.create(builder.build());
+        log.info("Created donation Checkout Session {} for product {}", session.getId(), productId);
         return session.getUrl();
     }
 
