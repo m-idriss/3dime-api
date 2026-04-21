@@ -26,7 +26,7 @@ public class QuotaService {
     private static final String COLLECTION_NAME = "users";
     private static final PlanType DEFAULT_PLAN = PlanType.FREE;
 
-    @ConfigProperty(name = "quota.limit.free", defaultValue = "10")
+    @ConfigProperty(name = "quota.limit.free", defaultValue = "3")
     long quotaLimitFree;
 
     @ConfigProperty(name = "quota.limit.pro", defaultValue = "100")

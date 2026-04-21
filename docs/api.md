@@ -117,7 +117,7 @@ New users are created automatically on first conversion with the `FREE` plan. Us
 
 | Plan | Monthly Conversions |
 |------|-------------------|
-| `FREE` | 10 |
+| `FREE` | 3 |
 | `PRO` | 100 |
 | `UNLIMITED` | 1,000,000 |
 
