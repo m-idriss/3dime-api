@@ -18,16 +18,19 @@ public class PlanTypeTest {
         // Test lowercase
         assertEquals(PlanType.FREE, PlanType.fromString("free"));
         assertEquals(PlanType.PRO, PlanType.fromString("pro"));
+        assertEquals(PlanType.BUSINESS, PlanType.fromString("business"));
         assertEquals(PlanType.UNLIMITED, PlanType.fromString("unlimited"));
         
         // Test uppercase  
         assertEquals(PlanType.FREE, PlanType.fromString("FREE"));
         assertEquals(PlanType.PRO, PlanType.fromString("PRO"));
+        assertEquals(PlanType.BUSINESS, PlanType.fromString("BUSINESS"));
         assertEquals(PlanType.UNLIMITED, PlanType.fromString("UNLIMITED"));
         
         // Test mixed case
         assertEquals(PlanType.FREE, PlanType.fromString("Free"));
         assertEquals(PlanType.PRO, PlanType.fromString("Pro"));
+        assertEquals(PlanType.BUSINESS, PlanType.fromString("Business"));
         
         // Test alternative names
         assertEquals(PlanType.PRO, PlanType.fromString("premium"));

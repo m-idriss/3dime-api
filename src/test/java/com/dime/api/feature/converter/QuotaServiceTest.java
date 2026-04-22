@@ -19,6 +19,7 @@ class QuotaServiceTest {
         quotaService = new QuotaService();
         quotaService.quotaLimitFree = 3;
         quotaService.quotaLimitPro = 100;
+        quotaService.quotaLimitBusiness = 120;
         quotaService.quotaLimitUnlimited = 1000000;
         quotaService.init();
         firestoreMock = mock(Firestore.class);

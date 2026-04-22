@@ -32,6 +32,9 @@ public class QuotaService {
     @ConfigProperty(name = "quota.limit.pro", defaultValue = "100")
     long quotaLimitPro;
 
+    @ConfigProperty(name = "quota.limit.business", defaultValue = "120")
+    long quotaLimitBusiness;
+
     @ConfigProperty(name = "quota.limit.unlimited", defaultValue = "1000000")
     long quotaLimitUnlimited;
 
@@ -42,6 +45,7 @@ public class QuotaService {
         this.quotaLimits = Map.of(
                 PlanType.FREE, quotaLimitFree,
                 PlanType.PRO, quotaLimitPro,
+                PlanType.BUSINESS, quotaLimitBusiness,
                 PlanType.UNLIMITED, quotaLimitUnlimited);
         log.info("Quota limits initialized: {}", quotaLimits);
     }
