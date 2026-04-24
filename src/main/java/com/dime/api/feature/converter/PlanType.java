@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 public enum PlanType {
     FREE,
     PRO,
+    BUSINESS,
     UNLIMITED;
 
     @JsonCreator
@@ -22,6 +23,7 @@ public enum PlanType {
                 case "free" -> FREE;
                 case "pro" -> PRO;
                 case "premium" -> PRO;
+                case "business" -> BUSINESS;
                 case "unlimited" -> UNLIMITED;
                 default -> FREE; // fallback to FREE for unknown values
             };

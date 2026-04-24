@@ -153,7 +153,7 @@ public class StripeService {
 
             String planId = subscription.getMetadata().getOrDefault("planId", "free");
             PlanType planType = switch (planId) {
-                case "business" -> PlanType.UNLIMITED;
+                case "business" -> PlanType.BUSINESS;
                 case "pro" -> PlanType.PRO;
                 default -> PlanType.FREE;
             };
