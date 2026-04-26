@@ -57,7 +57,7 @@
     <!-- Dependency Versions -->
     <quarkus-google-cloud-firestore.version>2.21.0</quarkus-google-cloud-firestore.version>
     <dotenv-java.version>3.2.0</dotenv-java.version>
-    <lombok.version>1.18.44</lombok.version>
+    <lombok.version>1.18.46</lombok.version>
   </properties>
   <dependencyManagement>
     <dependencies>
