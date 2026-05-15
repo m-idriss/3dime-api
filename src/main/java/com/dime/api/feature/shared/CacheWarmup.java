@@ -26,58 +26,56 @@ public class CacheWarmup {
 
     void onStart(@Observes StartupEvent event) {
         log.info("Starting cache warmup...");
-        warmFromFirestore();
-        CompletableFuture.runAsync(this::warmFromApis);
+        CompletableFuture.runAsync(this::runWarmupPhases);
     }
 
-    private void warmFromFirestore() {
-        try {
+    void runWarmupPhases() {
+        warmFromFirestore();
+        warmFromApis();
+    }
+
+    void warmFromFirestore() {
+        runWarmupStep("Firestore cache warmup", () -> {
             gitHubService.warmFromFirestore();
             notionService.warmFromFirestore();
             trackingService.warmFromFirestore();
             log.info("Phase 1: Firestore cache warmup completed (instant data available)");
-        } catch (Exception e) {
-            log.warn("Firestore cache warmup failed: {}", e.getMessage());
-        }
+        });
     }
 
-    private void warmFromApis() {
-        try {
+    void warmFromApis() {
+        runWarmupStep("GitHub user cache refresh", () -> {
             gitHubService.getUserInfo();
             log.info("GitHub user cache refreshed from API");
-        } catch (Exception e) {
-            log.warn("Failed to warm GitHub user cache: {}", e.getMessage());
-        }
-        try {
+        });
+        runWarmupStep("GitHub social cache refresh", () -> {
             gitHubService.getSocialAccounts();
             log.info("GitHub social cache refreshed from API");
-        } catch (Exception e) {
-            log.warn("Failed to warm GitHub social cache: {}", e.getMessage());
-        }
-        try {
+        });
+        runWarmupStep("GitHub commits cache refresh", () -> {
             gitHubService.getCommits(12);
             log.info("GitHub commits cache refreshed from API");
-        } catch (Exception e) {
-            log.warn("Failed to warm GitHub commits cache: {}", e.getMessage());
-        }
-        try {
+        });
+        runWarmupStep("GitHub release cache refresh", () -> {
             gitHubService.getLatestRelease();
             log.info("GitHub release cache refreshed from API");
-        } catch (Exception e) {
-            log.warn("Failed to warm GitHub release cache: {}", e.getMessage());
-        }
-        try {
+        });
+        runWarmupStep("Notion CMS cache refresh", () -> {
             notionService.refreshCmsContent();
             log.info("Notion CMS cache refreshed from API");
-        } catch (Exception e) {
-            log.warn("Failed to warm Notion CMS cache: {}", e.getMessage());
-        }
-        try {
+        });
+        runWarmupStep("Statistics cache refresh", () -> {
             trackingService.getStatistics();
             log.info("Statistics cache refreshed from API");
-        } catch (Exception e) {
-            log.warn("Failed to warm statistics cache: {}", e.getMessage());
-        }
+        });
         log.info("Phase 2: API cache warmup completed");
+    }
+
+    private void runWarmupStep(String stepName, Runnable task) {
+        try {
+            task.run();
+        } catch (Throwable t) {
+            log.warn("{} failed during startup warmup: {}", stepName, t.getMessage(), t);
+        }
     }
 }
