@@ -2,6 +2,7 @@ package com.dime.api.feature.shared.health;
 
 import com.google.cloud.firestore.Firestore;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.health.HealthCheck;
@@ -19,10 +20,14 @@ public class FirestoreHealthCheck implements HealthCheck {
     private static final String CHECK_NAME = "firestore";
 
     @Inject
-    Firestore firestore;
+    Instance<Firestore> firestoreInstance;
 
     volatile HealthCheckResponse cachedResponse;
     volatile long lastCheckedAt = 0;
+
+    Firestore firestore() {
+        return firestoreInstance.get();
+    }
 
     @Override
     public HealthCheckResponse call() {
@@ -38,19 +43,19 @@ public class FirestoreHealthCheck implements HealthCheck {
     HealthCheckResponse doCheck() {
         long start = System.currentTimeMillis();
         try {
-            firestore.collection("users").limit(1).get().get(2, TimeUnit.SECONDS);
+            firestore().collection("users").limit(1).get().get(2, TimeUnit.SECONDS);
             long latencyMs = System.currentTimeMillis() - start;
             return HealthCheckResponse.named(CHECK_NAME)
                     .up()
                     .withData("latencyMs", latencyMs)
                     .build();
-        } catch (Exception e) {
+        } catch (Throwable t) {
             long latencyMs = System.currentTimeMillis() - start;
-            log.warn("Firestore health check failed", e);
+            log.warn("Firestore health check failed", t);
             return HealthCheckResponse.named(CHECK_NAME)
                     .down()
                     .withData("latencyMs", latencyMs)
-                    .withData("error", e.getMessage())
+                    .withData("error", String.valueOf(t.getMessage()))
                     .build();
         }
     }

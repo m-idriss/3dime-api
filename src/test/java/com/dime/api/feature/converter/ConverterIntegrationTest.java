@@ -102,4 +102,15 @@ public class ConverterIntegrationTest {
             .then()
                 .statusCode(400); // Bad Request due to empty required parameter
     }
+
+    @Test
+    public void testPlansEndpointReturnsConfiguredPlansEvenIfFirestoreIsUnavailable() {
+        given()
+            .when().get("/v1/converter/plans")
+            .then()
+                .statusCode(200)
+                .body("size()", greaterThanOrEqualTo(4))
+                .body("plan", hasItems("FREE", "PRO", "BUSINESS", "UNLIMITED"))
+                .body("find { it.plan == 'FREE' }.limit", notNullValue());
+    }
 }
