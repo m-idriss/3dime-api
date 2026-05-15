@@ -26,6 +26,7 @@ import java.util.Optional;
 public class TrackingService {
 
     private static final int MAX_ERROR_MESSAGE_LENGTH = 2000;
+    private static final int NOTION_QUERY_PAGE_SIZE = 100;
 
     @Inject
     @RestClient
@@ -140,8 +141,8 @@ public class TrackingService {
         }
 
         try {
-            ObjectNode filter = objectMapper.createObjectNode();
-            ArrayNode and = filter.putObject("filter").putArray("and");
+            ObjectNode baseQuery = objectMapper.createObjectNode();
+            ArrayNode and = baseQuery.putObject("filter").putArray("and");
 
             ObjectNode actionFilter = and.addObject();
             actionFilter.put("property", "Action");
@@ -151,25 +152,37 @@ public class TrackingService {
             statusFilter.put("property", "Status");
             statusFilter.putObject("select").put("equals", "Success");
 
-            JsonNode response = notionClient.queryDatabase(BearerTokenUtil.ensureBearer(notionToken.get()), notionVersion,
-                    trackingDbId.get(), filter);
-
             int totalFileCount = 0;
             int totalEventCount = 0;
+            boolean hasMore;
+            String nextCursor = null;
 
-            if (response.has("results")) {
-                for (JsonNode page : response.get("results")) {
-                    JsonNode props = page.get("properties");
-                    if (props != null) {
-                        if (props.has("File Count")) {
-                            totalFileCount += props.get("File Count").get("number").asInt(0);
-                        }
-                        if (props.has("Event Count")) {
-                            totalEventCount += props.get("Event Count").get("number").asInt(0);
+            do {
+                ObjectNode query = baseQuery.deepCopy();
+                query.put("page_size", NOTION_QUERY_PAGE_SIZE);
+                if (nextCursor != null && !nextCursor.isBlank()) {
+                    query.put("start_cursor", nextCursor);
+                }
+
+                JsonNode response = notionClient.queryDatabase(BearerTokenUtil.ensureBearer(notionToken.get()), notionVersion,
+                        trackingDbId.get(), query);
+
+                if (response.has("results") && response.get("results").isArray()) {
+                    for (JsonNode page : response.get("results")) {
+                        JsonNode props = page.get("properties");
+                        if (props != null) {
+                            totalFileCount += extractNumberProperty(props, "File Count");
+                            totalEventCount += extractNumberProperty(props, "Event Count");
                         }
                     }
                 }
-            }
+
+                hasMore = response.path("has_more").asBoolean(false);
+                JsonNode nextCursorNode = response.get("next_cursor");
+                nextCursor = nextCursorNode != null && !nextCursorNode.isNull()
+                        ? nextCursorNode.asText()
+                        : null;
+            } while (hasMore && nextCursor != null && !nextCursor.isBlank());
 
             log.info("Fetched statistics from Notion: fileCount={}, eventCount={}", totalFileCount, totalEventCount);
             Statistics stats = new Statistics(totalFileCount, totalEventCount);
@@ -178,8 +191,31 @@ public class TrackingService {
 
         } catch (Exception e) {
             log.error("Failed to fetch statistics from Notion", e);
+            Statistics fallback = statisticsCache != null ? statisticsCache.getIfPresent("default") : null;
+            if (fallback != null) {
+                log.warn("Using cached statistics fallback after Notion fetch failure: fileCount={}, eventCount={}",
+                        fallback.fileCount(), fallback.eventCount());
+                return fallback;
+            }
+            if (firestoreCacheService != null) {
+                Optional<Statistics> firestoreFallback = firestoreCacheService.read("statistics", Statistics.class);
+                if (firestoreFallback.isPresent()) {
+                    Statistics stats = firestoreFallback.get();
+                    log.warn("Using Firestore statistics fallback after Notion fetch failure: fileCount={}, eventCount={}",
+                            stats.fileCount(), stats.eventCount());
+                    return stats;
+                }
+            }
             return new Statistics(0, 0);
         }
+    }
+
+    private int extractNumberProperty(JsonNode properties, String propertyName) {
+        if (properties == null || !properties.has(propertyName)) {
+            return 0;
+        }
+        JsonNode numberNode = properties.get(propertyName).get("number");
+        return numberNode != null && !numberNode.isNull() ? numberNode.asInt(0) : 0;
     }
 
     @Schema(description = "Global conversion statistics aggregated from Notion tracking database")
