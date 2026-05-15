@@ -5,6 +5,7 @@ import com.google.cloud.firestore.CollectionReference;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.Query;
 import com.google.cloud.firestore.QuerySnapshot;
+import jakarta.enterprise.inject.Instance;
 import org.eclipse.microprofile.health.HealthCheckResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,11 +19,16 @@ import static org.mockito.Mockito.*;
 class FirestoreHealthCheckTest {
 
     FirestoreHealthCheck check;
+    Firestore firestoreMock;
+    Instance<Firestore> firestoreInstanceMock;
 
     @BeforeEach
     void setup() {
         check = new FirestoreHealthCheck();
-        check.firestore = mock(Firestore.class);
+        firestoreMock = mock(Firestore.class);
+        firestoreInstanceMock = mock(Instance.class);
+        when(firestoreInstanceMock.get()).thenReturn(firestoreMock);
+        check.firestoreInstance = firestoreInstanceMock;
         check.cachedResponse = null;
         check.lastCheckedAt = 0;
     }
@@ -34,10 +40,10 @@ class FirestoreHealthCheckTest {
         ApiFuture<QuerySnapshot> future = mock(ApiFuture.class);
         QuerySnapshot snapshot = mock(QuerySnapshot.class);
 
-        when(check.firestore.collection("users")).thenReturn(collection);
+        when(firestoreMock.collection("users")).thenReturn(collection);
         when(collection.limit(1)).thenReturn(query);
         when(query.get()).thenReturn(future);
-        when(future.get(500, TimeUnit.MILLISECONDS)).thenReturn(snapshot);
+        when(future.get(2, TimeUnit.SECONDS)).thenReturn(snapshot);
 
         HealthCheckResponse response = check.doCheck();
 
@@ -53,7 +59,7 @@ class FirestoreHealthCheckTest {
         Query query = mock(Query.class);
         ApiFuture<QuerySnapshot> future = mock(ApiFuture.class);
 
-        when(check.firestore.collection("users")).thenReturn(collection);
+        when(firestoreMock.collection("users")).thenReturn(collection);
         when(collection.limit(1)).thenReturn(query);
         when(query.get()).thenReturn(future);
         when(future.get(2, TimeUnit.SECONDS)).thenThrow(new RuntimeException("connection refused"));
@@ -68,7 +74,18 @@ class FirestoreHealthCheckTest {
 
     @Test
     void testDown_onFirestoreUnavailable() {
-        when(check.firestore.collection(any())).thenThrow(new RuntimeException("Firestore unavailable"));
+        when(firestoreMock.collection(any())).thenThrow(new RuntimeException("Firestore unavailable"));
+
+        HealthCheckResponse response = check.doCheck();
+
+        assertEquals(HealthCheckResponse.Status.DOWN, response.getStatus());
+        assertTrue(response.getData().isPresent());
+        assertNotNull(response.getData().get().get("error"));
+    }
+
+    @Test
+    void testDown_onLinkageErrorDuringBeanInitialization() {
+        when(firestoreInstanceMock.get()).thenThrow(new NoSuchMethodError("GrpcTelemetry.newClientInterceptor"));
 
         HealthCheckResponse response = check.doCheck();
 
@@ -84,14 +101,14 @@ class FirestoreHealthCheckTest {
         ApiFuture<QuerySnapshot> future = mock(ApiFuture.class);
         QuerySnapshot snapshot = mock(QuerySnapshot.class);
 
-        when(check.firestore.collection("users")).thenReturn(collection);
+        when(firestoreMock.collection("users")).thenReturn(collection);
         when(collection.limit(1)).thenReturn(query);
         when(query.get()).thenReturn(future);
-        when(future.get(500, TimeUnit.MILLISECONDS)).thenReturn(snapshot);
+        when(future.get(2, TimeUnit.SECONDS)).thenReturn(snapshot);
 
         check.call();
         check.call();
 
-        verify(check.firestore, times(1)).collection("users");
+        verify(firestoreMock, times(1)).collection("users");
     }
 }

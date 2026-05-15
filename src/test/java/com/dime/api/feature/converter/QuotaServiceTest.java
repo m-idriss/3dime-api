@@ -1,6 +1,7 @@
 package com.dime.api.feature.converter;
 
 import com.google.cloud.firestore.Firestore;
+import jakarta.enterprise.inject.Instance;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -12,6 +13,7 @@ class QuotaServiceTest {
 
     QuotaService quotaService;
     Firestore firestoreMock;
+    Instance<Firestore> firestoreInstanceMock;
     NotionQuotaService notionQuotaServiceMock;
 
     @BeforeEach
@@ -23,8 +25,10 @@ class QuotaServiceTest {
         quotaService.quotaLimitUnlimited = 1000000;
         quotaService.init();
         firestoreMock = mock(Firestore.class);
+        firestoreInstanceMock = mock(Instance.class);
+        when(firestoreInstanceMock.get()).thenReturn(firestoreMock);
         notionQuotaServiceMock = mock(NotionQuotaService.class);
-        quotaService.firestore = firestoreMock;
+        quotaService.firestoreInstance = firestoreInstanceMock;
         quotaService.notionQuotaService = notionQuotaServiceMock;
     }
 
@@ -66,5 +70,24 @@ class QuotaServiceTest {
         when(firestoreMock.collection(any())).thenThrow(new RuntimeException("Firestore error"));
         UserQuota quota = new UserQuota();
         assertDoesNotThrow(() -> quotaService.updateQuota("non-existent-user-update", quota));
+    }
+
+    @Test
+    public void testGetQuotaLimits_doesNotTouchFirestore() {
+        quotaService.getQuotaLimits();
+
+        verifyNoInteractions(firestoreInstanceMock);
+    }
+
+    @Test
+    public void testCheckQuota_handlesLinkageErrorFromFirestoreBean() {
+        when(firestoreInstanceMock.get())
+                .thenThrow(new NoSuchMethodError("GrpcTelemetry.newClientInterceptor"));
+
+        assertDoesNotThrow(() -> {
+            QuotaService.QuotaCheckResult result = quotaService.checkQuota("linkage-error-user");
+            assertTrue(result.allowed());
+            assertEquals(PlanType.FREE, result.plan());
+        });
     }
 }
