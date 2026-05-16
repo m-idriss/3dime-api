@@ -98,8 +98,8 @@ public class QuotaService {
 
             UserQuota userQuota = document.toObject(UserQuota.class);
             if (userQuota == null) {
-                // Fallback if deserialization fails
-                return new QuotaCheckResult(true, 0, 0, DEFAULT_PLAN);
+                // Fallback if deserialization fails — deny to avoid quota bypass
+                return new QuotaCheckResult(false, 0, 0, DEFAULT_PLAN);
             }
 
             // Check for new month
