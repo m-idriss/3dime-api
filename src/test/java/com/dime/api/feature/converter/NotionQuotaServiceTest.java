@@ -31,7 +31,7 @@ public class NotionQuotaServiceTest {
         notionQuotaService = new NotionQuotaService();
         notionQuotaService.notionClient = notionClient;
         notionQuotaService.objectMapper = objectMapper;
-        notionQuotaService.token = "dummy-token";
+        notionQuotaService.token = Optional.of("dummy-token");
         notionQuotaService.version = "2022-06-28";
         notionQuotaService.quotaDbId = Optional.of("dummy-db-id");
     }
