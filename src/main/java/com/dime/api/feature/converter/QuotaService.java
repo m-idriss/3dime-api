@@ -79,7 +79,7 @@ public class QuotaService {
         return firestoreInstance.get();
     }
 
-    public void updateQuotaLimit(PlanType plan, long newLimit) {
+    public synchronized void updateQuotaLimit(PlanType plan, long newLimit) {
         EnumMap<PlanType, Long> mutable = new EnumMap<>(PlanType.class);
         mutable.putAll(quotaLimits);
         mutable.put(plan, newLimit);
