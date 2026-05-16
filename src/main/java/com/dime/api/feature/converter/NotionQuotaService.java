@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.dime.api.feature.notion.NotionClient;
 import com.dime.api.feature.shared.BearerTokenUtil;
+import com.dime.api.feature.shared.exception.ExternalServiceException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -29,7 +30,7 @@ public class NotionQuotaService {
     NotionClient notionClient;
 
     @ConfigProperty(name = "notion.token")
-    String token;
+    Optional<String> token;
 
     @ConfigProperty(name = "notion.quota.database-id")
     Optional<String> quotaDbId;
@@ -54,7 +55,7 @@ public class NotionQuotaService {
             filter.put("property", "User ID");
             filter.putObject("title").put("equals", userId);
 
-            JsonNode response = notionClient.queryDatabase(BearerTokenUtil.ensureBearer(token), version, quotaDbId.get(), query);
+            JsonNode response = notionClient.queryDatabase(BearerTokenUtil.ensureBearer(token.orElseThrow(() -> new ExternalServiceException("Notion", "NOTION_TOKEN not configured", null))), version, quotaDbId.get(), query);
 
             if (response.has("results") && response.get("results").isArray() && response.get("results").size() > 0) {
                 return response.get("results").get(0).get("id").asText();
@@ -82,7 +83,7 @@ public class NotionQuotaService {
                 addRichTextProperty(properties, "Email", email);
             }
 
-            String authToken = BearerTokenUtil.ensureBearer(token);
+            String authToken = BearerTokenUtil.ensureBearer(token.orElseThrow(() -> new ExternalServiceException("Notion", "NOTION_TOKEN not configured", null)));
 
             if (pageId != null) {
                 ObjectNode updatePayload = objectMapper.createObjectNode();
@@ -113,7 +114,7 @@ public class NotionQuotaService {
                 if (cursor != null) {
                     query.put("start_cursor", cursor);
                 }
-                JsonNode response = notionClient.queryDatabase(BearerTokenUtil.ensureBearer(token), version, quotaDbId.get(), query);
+                JsonNode response = notionClient.queryDatabase(BearerTokenUtil.ensureBearer(token.orElseThrow(() -> new ExternalServiceException("Notion", "NOTION_TOKEN not configured", null))), version, quotaDbId.get(), query);
 
                 if (response.has("results") && response.get("results").isArray()) {
                     for (JsonNode page : response.get("results")) {
@@ -185,7 +186,7 @@ public class NotionQuotaService {
             if (pageId != null) {
                 ObjectNode properties = objectMapper.createObjectNode();
                 properties.put("archived", true);
-                notionClient.updatePage(BearerTokenUtil.ensureBearer(token), version, pageId, properties);
+                notionClient.updatePage(BearerTokenUtil.ensureBearer(token.orElseThrow(() -> new ExternalServiceException("Notion", "NOTION_TOKEN not configured", null))), version, pageId, properties);
                 log.info("Archived quota page in Notion for user {}", userId);
             }
         } catch (Exception e) {
