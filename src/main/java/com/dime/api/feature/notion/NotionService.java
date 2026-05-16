@@ -130,12 +130,10 @@ public class NotionService {
                 errorBody = "Unable to read error response";
             }
             log.error("Notion API error: {} - Status: {}", errorBody, e.getResponse().getStatus(), e);
-            throw new ExternalServiceException("Notion",
-                    "Notion API returned error (Status " + e.getResponse().getStatus() + "): " + errorBody, e);
+            throw new ExternalServiceException("Notion", "Unable to fetch CMS content. Please try again.", e);
         } catch (Exception e) {
             log.error("Failed to fetch CMS content from Notion", e);
-            throw new ExternalServiceException("Notion",
-                    "Failed to fetch CMS content from Notion: " + e.getMessage(), e);
+            throw new ExternalServiceException("Notion", "Unable to fetch CMS content. Please try again.", e);
         }
     }
 
