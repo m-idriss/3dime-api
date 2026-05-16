@@ -156,6 +156,8 @@ public class TrackingService {
             int totalEventCount = 0;
             boolean hasMore;
             String nextCursor = null;
+            int pageCount = 0;
+            final int MAX_PAGES = 1000;
 
             do {
                 ObjectNode query = baseQuery.deepCopy();
@@ -182,7 +184,8 @@ public class TrackingService {
                 nextCursor = nextCursorNode != null && !nextCursorNode.isNull()
                         ? nextCursorNode.asText()
                         : null;
-            } while (hasMore && nextCursor != null && !nextCursor.isBlank());
+                pageCount++;
+            } while (hasMore && nextCursor != null && !nextCursor.isBlank() && pageCount < MAX_PAGES);
 
             log.info("Fetched statistics from Notion: fileCount={}, eventCount={}", totalFileCount, totalEventCount);
             Statistics stats = new Statistics(totalFileCount, totalEventCount);

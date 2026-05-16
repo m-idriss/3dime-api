@@ -18,6 +18,8 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -77,7 +79,7 @@ public class QuotaService {
         return firestoreInstance.get();
     }
 
-    public void updateQuotaLimit(PlanType plan, long newLimit) {
+    public synchronized void updateQuotaLimit(PlanType plan, long newLimit) {
         EnumMap<PlanType, Long> mutable = new EnumMap<>(PlanType.class);
         mutable.putAll(quotaLimits);
         mutable.put(plan, newLimit);
@@ -87,7 +89,7 @@ public class QuotaService {
 
     public QuotaCheckResult checkQuota(@NonNull String userId, String email) {
         try {
-            DocumentSnapshot document = firestore().collection(COLLECTION_NAME).document(userId).get().get();
+            DocumentSnapshot document = firestore().collection(COLLECTION_NAME).document(userId).get().get(5, TimeUnit.SECONDS);
 
             if (!document.exists()) {
                 UserQuota newUser = createUser(userId, email);
@@ -96,8 +98,8 @@ public class QuotaService {
 
             UserQuota userQuota = document.toObject(UserQuota.class);
             if (userQuota == null) {
-                // Fallback if deserialization fails
-                return new QuotaCheckResult(true, 0, 0, DEFAULT_PLAN);
+                // Fallback if deserialization fails — deny to avoid quota bypass
+                return new QuotaCheckResult(false, 0, 0, DEFAULT_PLAN);
             }
 
             // Check for new month
@@ -136,13 +138,13 @@ public class QuotaService {
                     }
                 }
                 return null;
-            }).get();
+            }).get(10, TimeUnit.SECONDS);
 
             log.info("Incremented usage for user {}", userId);
 
             // Async sync to Notion (non-blocking)
             try {
-                DocumentSnapshot snapshot = docRef.get().get();
+                DocumentSnapshot snapshot = docRef.get().get(5, TimeUnit.SECONDS);
                 if (snapshot.exists()) {
                     UserQuota quota = snapshot.toObject(UserQuota.class);
                     if (quota != null) {
@@ -165,7 +167,7 @@ public class QuotaService {
 
     public UserQuota getQuotaStatus(@NonNull String userId) {
         try {
-            DocumentSnapshot document = firestore().collection(COLLECTION_NAME).document(userId).get().get();
+            DocumentSnapshot document = firestore().collection(COLLECTION_NAME).document(userId).get().get(5, TimeUnit.SECONDS);
             if (document.exists()) {
                 UserQuota userQuota = document.toObject(UserQuota.class);
                 if (userQuota != null && isNewMonth(userQuota.periodStart)) {
@@ -179,7 +181,7 @@ public class QuotaService {
         return null;
     }
 
-    private UserQuota createUser(@NonNull String userId, String email) throws ExecutionException, InterruptedException {
+    private UserQuota createUser(@NonNull String userId, String email) throws ExecutionException, InterruptedException, TimeoutException {
         Timestamp now = Timestamp.now();
         UserQuota newUser = new UserQuota(
                 DEFAULT_PLAN,
@@ -189,7 +191,7 @@ public class QuotaService {
                 now,
                 now);
         newUser.email = email;
-        firestore().collection(COLLECTION_NAME).document(userId).set(newUser).get();
+        firestore().collection(COLLECTION_NAME).document(userId).set(newUser).get(5, TimeUnit.SECONDS);
         log.info("Created new user {}", userId);
         return newUser;
     }
@@ -213,7 +215,7 @@ public class QuotaService {
             QuerySnapshot result = firestore().collection(COLLECTION_NAME)
                     .whereEqualTo("email", email)
                     .limit(1)
-                    .get().get();
+                    .get().get(5, TimeUnit.SECONDS);
             if (!result.isEmpty()) {
                 DocumentSnapshot doc = result.getDocuments().get(0);
                 return new UserQuotaWrapper(doc.getId(), doc.toObject(UserQuota.class));
@@ -245,7 +247,7 @@ public class QuotaService {
 
     public List<UserQuotaWrapper> findAll() {
         try {
-            return firestore().collection(COLLECTION_NAME).get().get().getDocuments()
+            return firestore().collection(COLLECTION_NAME).get().get(5, TimeUnit.SECONDS).getDocuments()
                     .stream()
                     .map(doc -> new UserQuotaWrapper(doc.getId(), doc.toObject(UserQuota.class)))
                     .collect(Collectors.toList());
@@ -258,7 +260,7 @@ public class QuotaService {
     public void updateQuota(@NonNull String userId, UserQuota quota) {
         try {
             quota.updatedAt = Timestamp.now();
-            firestore().collection(COLLECTION_NAME).document(userId).set(quota, SetOptions.merge()).get();
+            firestore().collection(COLLECTION_NAME).document(userId).set(quota, SetOptions.merge()).get(5, TimeUnit.SECONDS);
             log.info("Updated quota for user {}", userId);
 
             // Sync to Notion after update
@@ -301,13 +303,13 @@ public class QuotaService {
                             "updatedAt", now);
                 }
                 return null;
-            }).get();
+            }).get(10, TimeUnit.SECONDS);
 
             log.info("Updated plan for user {} → {} (limit={})", userId, plan, newLimit);
 
             // Async sync to Notion (non-blocking)
             try {
-                DocumentSnapshot snapshot = docRef.get().get();
+                DocumentSnapshot snapshot = docRef.get().get(5, TimeUnit.SECONDS);
                 if (snapshot.exists()) {
                     UserQuota quota = snapshot.toObject(UserQuota.class);
                     if (quota != null) {
@@ -328,7 +330,7 @@ public class QuotaService {
 
     public void deleteQuota(@NonNull String userId) {
         try {
-            firestore().collection(COLLECTION_NAME).document(userId).delete().get();
+            firestore().collection(COLLECTION_NAME).document(userId).delete().get(5, TimeUnit.SECONDS);
             log.info("Deleted quota for user {}", userId);
 
             // Delete from Notion after deletion
@@ -430,7 +432,7 @@ public class QuotaService {
                     transaction.update(docRef, updates);
                 }
                 return null;
-            }).get();
+            }).get(10, TimeUnit.SECONDS);
             log.info("Synced user {} from Notion to Firestore", data.userId());
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error updating user {} from Notion data", data.userId(), e);

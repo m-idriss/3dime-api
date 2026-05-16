@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @ApplicationScoped
@@ -32,7 +33,7 @@ public class FirestoreCacheService {
 
     public <T> Optional<T> read(String key, Class<T> type) {
         try {
-            DocumentSnapshot doc = firestore().collection(COLLECTION).document(key).get().get();
+            DocumentSnapshot doc = firestore().collection(COLLECTION).document(key).get().get(5, TimeUnit.SECONDS);
             if (doc.exists()) {
                 String json = doc.getString("data");
                 if (json != null) {
@@ -47,7 +48,7 @@ public class FirestoreCacheService {
 
     public <T> Optional<T> read(String key, TypeReference<T> type) {
         try {
-            DocumentSnapshot doc = firestore().collection(COLLECTION).document(key).get().get();
+            DocumentSnapshot doc = firestore().collection(COLLECTION).document(key).get().get(5, TimeUnit.SECONDS);
             if (doc.exists()) {
                 String json = doc.getString("data");
                 if (json != null) {
@@ -65,7 +66,7 @@ public class FirestoreCacheService {
             try {
                 String json = objectMapper.writeValueAsString(data);
                 firestore().collection(COLLECTION).document(key)
-                        .set(Map.of("data", json, "updatedAt", Timestamp.now())).get();
+                        .set(Map.of("data", json, "updatedAt", Timestamp.now())).get(10, TimeUnit.SECONDS);
                 log.debug("Written cache to Firestore for key: {}", key);
             } catch (Throwable t) {
                 log.warn("Failed to write cache to Firestore for key: {}", key, t);
