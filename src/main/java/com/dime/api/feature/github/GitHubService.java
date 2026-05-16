@@ -146,6 +146,10 @@ public class GitHubService {
   private List<Map<String, Object>> fetchCommits(int months) {
     log.info("Fetching GitHub commits for: {} (months: {})", username, months);
 
+    if (username == null || !username.matches("[a-zA-Z0-9-]{1,39}")) {
+      throw new ExternalServiceException("GitHub", "Invalid GitHub username configured: " + username);
+    }
+
     String query = """
         query {
           user(login: "%s") {
