@@ -66,7 +66,7 @@ public class NotionQuotaService {
         }
     }
 
-    public void syncToNotion(String userId, long quotaUsed, PlanType plan, Instant periodStart) {
+    public void syncToNotion(String userId, long quotaUsed, PlanType plan, Instant periodStart, String email) {
         if (!isEnabled())
             return;
 
@@ -78,6 +78,9 @@ public class NotionQuotaService {
             addNumberProperty(properties, "Usage Count", quotaUsed);
             addDateProperty(properties, "Last Reset", periodStart.toString());
             addSelectProperty(properties, "Plan", plan.name());
+            if (email != null) {
+                addRichTextProperty(properties, "Email", email);
+            }
 
             String authToken = BearerTokenUtil.ensureBearer(token);
 
@@ -121,12 +124,15 @@ public class NotionQuotaService {
                             String planStr = getSelectContent(props.get("Plan"));
                             String lastResetStr = getDateContent(props.get("Last Reset"));
 
+                            String email = getRichTextContent(props.get("Email"));
+
                             if (userId != null && !userId.isEmpty()) {
                                 results.add(new QuotaData(
                                         userId,
                                         usageCount,
                                         lastResetStr != null ? Instant.parse(lastResetStr) : Instant.now(),
-                                        PlanType.fromString(planStr)));
+                                        PlanType.fromString(planStr),
+                                        email));
                             }
                         }
                     }
@@ -205,6 +211,20 @@ public class NotionQuotaService {
         properties.putObject(name).putObject("select").put("name", option);
     }
 
-    public record QuotaData(String userId, long usageCount, Instant lastReset, PlanType plan) {
+    void addRichTextProperty(ObjectNode properties, String name, String content) {
+        ObjectNode wrapper = properties.putObject(name);
+        ArrayNode richTextArray = wrapper.putArray("rich_text");
+        richTextArray.addObject().putObject("text").put("content", content);
+    }
+
+    String getRichTextContent(JsonNode property) {
+        if (property != null && property.has("rich_text") && property.get("rich_text").isArray()
+                && property.get("rich_text").size() > 0) {
+            return property.get("rich_text").get(0).get("text").get("content").asText();
+        }
+        return null;
+    }
+
+    public record QuotaData(String userId, long usageCount, Instant lastReset, PlanType plan, String email) {
     }
 }
