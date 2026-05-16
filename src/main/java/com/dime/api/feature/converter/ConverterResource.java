@@ -222,6 +222,7 @@ public class ConverterResource {
     }
 
     private int countEvents(String ics) {
+        if (ics.length() > 10_000_000) return -1;
         return ics.split("BEGIN:VEVENT").length - 1;
     }
 
