@@ -28,6 +28,20 @@ public class UserQuotaResource {
     QuotaService quotaService;
 
     @GET
+    @Path("/search")
+    @Operation(summary = "Search user by email", description = "Finds a user quota record by email address")
+    @APIResponse(responseCode = "200", description = "User found", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = QuotaService.UserQuotaWrapper.class)))
+    @APIResponse(responseCode = "404", description = "User not found")
+    public Response searchByEmail(@QueryParam("email") @NotNull String email) {
+        log.info("GET /users/search?email={} called", email);
+        QuotaService.UserQuotaWrapper result = quotaService.findByEmail(email);
+        if (result == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+        return Response.ok(result).build();
+    }
+
+    @GET
     @Operation(summary = "List all user quotas", description = "Retrieves a list of all users and their current quota status")
     @APIResponse(responseCode = "200", description = "List of user quotas", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = QuotaService.UserQuotaWrapper.class, type = SchemaType.ARRAY)))
     public List<QuotaService.UserQuotaWrapper> getAllQuotas() {

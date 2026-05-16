@@ -85,12 +85,12 @@ public class QuotaService {
         log.info("Updated quota limit for {}: {}", plan, newLimit);
     }
 
-    public QuotaCheckResult checkQuota(@NonNull String userId) {
+    public QuotaCheckResult checkQuota(@NonNull String userId, String email) {
         try {
             DocumentSnapshot document = firestore().collection(COLLECTION_NAME).document(userId).get().get();
 
             if (!document.exists()) {
-                UserQuota newUser = createUser(userId);
+                UserQuota newUser = createUser(userId, email);
                 return new QuotaCheckResult(true, newUser.quotaLimit, newUser.quotaLimit, newUser.getPlanType());
             }
 
@@ -119,7 +119,7 @@ public class QuotaService {
         }
     }
 
-    public void incrementUsage(@NonNull String userId) {
+    public void incrementUsage(@NonNull String userId, String email) {
         try {
             DocumentReference docRef = firestore().collection(COLLECTION_NAME).document(userId);
 
@@ -127,10 +127,13 @@ public class QuotaService {
                 DocumentSnapshot snapshot = transaction.get(docRef).get();
 
                 if (!snapshot.exists()) {
-                    createUserInTransaction(transaction, docRef);
+                    createUserInTransaction(transaction, docRef, email);
                 } else {
                     transaction.update(docRef, "quotaUsed", FieldValue.increment(1));
                     transaction.update(docRef, "updatedAt", Timestamp.now());
+                    if (email != null && snapshot.getString("email") == null) {
+                        transaction.update(docRef, "email", email);
+                    }
                 }
                 return null;
             }).get();
@@ -175,7 +178,7 @@ public class QuotaService {
         return null;
     }
 
-    private UserQuota createUser(@NonNull String userId) throws ExecutionException, InterruptedException {
+    private UserQuota createUser(@NonNull String userId, String email) throws ExecutionException, InterruptedException {
         Timestamp now = Timestamp.now();
         UserQuota newUser = new UserQuota(
                 DEFAULT_PLAN,
@@ -184,12 +187,14 @@ public class QuotaService {
                 now,
                 now,
                 now);
+        newUser.email = email;
         firestore().collection(COLLECTION_NAME).document(userId).set(newUser).get();
         log.info("Created new user {}", userId);
         return newUser;
     }
 
-    private void createUserInTransaction(@NonNull Transaction transaction, @NonNull DocumentReference docRef) {
+    private void createUserInTransaction(@NonNull Transaction transaction, @NonNull DocumentReference docRef,
+            String email) {
         Timestamp now = Timestamp.now();
         UserQuota newUser = new UserQuota(
                 DEFAULT_PLAN,
@@ -198,7 +203,24 @@ public class QuotaService {
                 now,
                 now,
                 now);
+        newUser.email = email;
         transaction.set(docRef, newUser);
+    }
+
+    public UserQuotaWrapper findByEmail(@NonNull String email) {
+        try {
+            QuerySnapshot result = firestore().collection(COLLECTION_NAME)
+                    .whereEqualTo("email", email)
+                    .limit(1)
+                    .get().get();
+            if (!result.isEmpty()) {
+                DocumentSnapshot doc = result.getDocuments().get(0);
+                return new UserQuotaWrapper(doc.getId(), doc.toObject(UserQuota.class));
+            }
+        } catch (Throwable t) {
+            log.error("Error searching user by email {}", email, t);
+        }
+        return null;
     }
 
     private void resetQuota(@NonNull String userId) {

@@ -35,7 +35,7 @@ class QuotaServiceTest {
     @Test
     public void testIncrementUsageHandlesException() {
         when(firestoreMock.collection(any())).thenThrow(new RuntimeException("Firestore error"));
-        assertDoesNotThrow(() -> quotaService.incrementUsage("user1"));
+        assertDoesNotThrow(() -> quotaService.incrementUsage("user1", null));
     }
 
     @Test
@@ -48,7 +48,7 @@ class QuotaServiceTest {
     public void testCheckQuota_neverThrows_andDefaultsToAllow() {
         when(firestoreMock.collection(any())).thenThrow(new RuntimeException("Firestore error"));
         assertDoesNotThrow(() -> {
-            QuotaService.QuotaCheckResult result = quotaService.checkQuota("resilience-test-user");
+            QuotaService.QuotaCheckResult result = quotaService.checkQuota("resilience-test-user", null);
             assertTrue(result.allowed());
         });
     }
@@ -85,7 +85,7 @@ class QuotaServiceTest {
                 .thenThrow(new NoSuchMethodError("GrpcTelemetry.newClientInterceptor"));
 
         assertDoesNotThrow(() -> {
-            QuotaService.QuotaCheckResult result = quotaService.checkQuota("linkage-error-user");
+            QuotaService.QuotaCheckResult result = quotaService.checkQuota("linkage-error-user", null);
             assertTrue(result.allowed());
             assertEquals(PlanType.FREE, result.plan());
         });
