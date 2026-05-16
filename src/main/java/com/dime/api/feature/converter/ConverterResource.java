@@ -67,7 +67,9 @@ public class ConverterResource {
             @Context ContainerRequestContext requestContext) {
         long startTime = System.currentTimeMillis();
         String verifiedUid = (String) requestContext.getProperty(FirebaseAuthFilter.FIREBASE_UID);
-        String email = (String) requestContext.getProperty(FirebaseAuthFilter.FIREBASE_EMAIL);
+        String rawEmail = (String) requestContext.getProperty(FirebaseAuthFilter.FIREBASE_EMAIL);
+        String email = rawEmail != null && rawEmail.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
+                ? rawEmail : null;
         String userId = verifiedUid != null ? verifiedUid : "anonymous";
         String domain = getDomain(headers);
         int fileCount = request.files != null ? request.files.size() : 0;
