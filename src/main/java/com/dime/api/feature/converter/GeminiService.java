@@ -133,7 +133,7 @@ public class GeminiService {
                 JsonNode responseParts = candidate.get("content").get("parts");
                 if (responseParts.size() > 0 && responseParts.get(0).has("text")) {
                     String text = responseParts.get(0).get("text").asText();
-                    return cleanIcs(text);
+                    return IcsUtils.cleanIcs(text);
                 }
             }
         }
@@ -165,7 +165,4 @@ public class GeminiService {
         }
     }
 
-    String cleanIcs(String text) {
-        return IcsUtils.cleanIcs(text);
-    }
 }

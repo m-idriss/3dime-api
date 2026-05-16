@@ -1,6 +1,8 @@
 package com.dime.api.feature.converter;
 
+import com.dime.api.feature.shared.exception.ValidationException;
 import jakarta.inject.Inject;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -99,9 +101,14 @@ public class UserQuotaResource {
     @Path("/plans/{plan}")
     @Operation(summary = "Update plan limit", description = "Updates the quota limit for a specific plan (in-memory, resets on restart)")
     @APIResponse(responseCode = "204", description = "Plan limit updated")
-    public Response updatePlanLimit(@PathParam("plan") String plan, @QueryParam("limit") @NotNull long limit) {
+    public Response updatePlanLimit(@PathParam("plan") String plan, @QueryParam("limit") @NotNull @Min(1) long limit) {
         log.info("PUT /users/plans/{} called with limit={}", plan, limit);
-        PlanType planType = PlanType.fromString(plan);
+        PlanType planType;
+        try {
+            planType = PlanType.valueOf(plan.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException("Unknown plan: " + plan + ". Valid values: FREE, PRO, BUSINESS, UNLIMITED");
+        }
         quotaService.updateQuotaLimit(planType, limit);
         return Response.noContent().build();
     }
