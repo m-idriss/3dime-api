@@ -150,7 +150,8 @@ public class QuotaService {
                                 userId,
                                 quota.quotaUsed,
                                 quota.getPlanType(),
-                                quota.periodStart.toDate().toInstant());
+                                quota.periodStart.toDate().toInstant(),
+                                quota.email);
                     }
                 }
             } catch (Throwable t) {
@@ -266,7 +267,8 @@ public class QuotaService {
                         userId,
                         quota.quotaUsed,
                         quota.getPlanType(),
-                        quota.periodStart != null ? quota.periodStart.toDate().toInstant() : Instant.now());
+                        quota.periodStart != null ? quota.periodStart.toDate().toInstant() : Instant.now(),
+                        quota.email);
             } catch (Throwable t) {
                 log.warn("Failed to sync to Notion for user {} after update (non-blocking)", userId, t);
             }
@@ -311,7 +313,8 @@ public class QuotaService {
                     if (quota != null) {
                         notionQuotaService.syncToNotion(userId, quota.quotaUsed, plan,
                                 quota.periodStart != null ? quota.periodStart.toDate().toInstant()
-                                        : java.time.Instant.now());
+                                        : java.time.Instant.now(),
+                                quota.email);
                     }
                 }
             } catch (Throwable t) {
@@ -360,7 +363,8 @@ public class QuotaService {
                             wrapper.quota().quotaUsed,
                             wrapper.quota().getPlanType(),
                             wrapper.quota().periodStart != null ? wrapper.quota().periodStart.toDate().toInstant()
-                                    : Instant.now());
+                                    : Instant.now(),
+                            wrapper.quota().email);
                 } catch (Exception e) {
                     log.warn("Failed to sync user {} to Notion during sync", wrapper.userId(), e);
                 }
@@ -411,14 +415,19 @@ public class QuotaService {
                             periodStart,
                             now,
                             now);
+                    newUser.email = data.email();
                     transaction.set(docRef, newUser);
                 } else {
-                    transaction.update(docRef,
-                            "plan", data.plan().name(),
-                            "quotaUsed", data.usageCount(),
-                            "quotaLimit", limit,
-                            "periodStart", periodStart,
-                            "updatedAt", now);
+                    java.util.Map<String, Object> updates = new java.util.HashMap<>();
+                    updates.put("plan", data.plan().name());
+                    updates.put("quotaUsed", data.usageCount());
+                    updates.put("quotaLimit", limit);
+                    updates.put("periodStart", periodStart);
+                    updates.put("updatedAt", now);
+                    if (data.email() != null) {
+                        updates.put("email", data.email());
+                    }
+                    transaction.update(docRef, updates);
                 }
                 return null;
             }).get();

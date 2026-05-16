@@ -40,7 +40,7 @@ public class NotionQuotaServiceTest {
     public void testSyncToNotionHandlesDisabled() {
         notionQuotaService.quotaDbId = Optional.empty();
         // Should not throw
-        assertDoesNotThrow(() -> notionQuotaService.syncToNotion("user1", 5, PlanType.FREE, Instant.now()));
+        assertDoesNotThrow(() -> notionQuotaService.syncToNotion("user1", 5, PlanType.FREE, Instant.now(), null));
     }
 
     @Test
@@ -80,12 +80,15 @@ public class NotionQuotaServiceTest {
 
         assertEquals(2, results.size());
         assertEquals("user1", results.get(0).userId());
+        assertEquals("user1@example.com", results.get(0).email());
         assertEquals("user2", results.get(1).userId());
+        assertEquals("user2@example.com", results.get(1).email());
         verify(notionClient, times(2)).queryDatabase(any(), any(), any(), any());
     }
 
     private ObjectNode buildPageResponse(String userId, long usageCount, String plan, String lastReset,
             boolean hasMore, String nextCursor) {
+        String email = userId + "@example.com";
         ObjectNode response = objectMapper.createObjectNode();
         ArrayNode results = response.putArray("results");
         ObjectNode page = results.addObject();
@@ -95,6 +98,7 @@ public class NotionQuotaServiceTest {
         props.putObject("Usage Count").put("number", usageCount);
         props.putObject("Plan").putObject("select").put("name", plan);
         props.putObject("Last Reset").putObject("date").put("start", lastReset);
+        notionQuotaService.addRichTextProperty(props, "Email", email);
 
         response.put("has_more", hasMore);
         if (nextCursor != null) {
