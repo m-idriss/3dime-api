@@ -36,7 +36,7 @@ public class GeminiServiceTest {
     @Test
     public void testCleanIcs() {
         String dirty = "BEGIN:VCALENDAR\nSUMMARY:Test\nEND:VCALENDAR";
-        String cleaned = geminiService.cleanIcs(dirty);
+        String cleaned = IcsUtils.cleanIcs(dirty);
         assertNotNull(cleaned);
         assertTrue(cleaned.contains("VCALENDAR"));
     }
@@ -90,7 +90,7 @@ public class GeminiServiceTest {
         @Test
         void testCleanIcs_removesMarkdownIcsBlock() {
             String dirty = "```ics\nBEGIN:VCALENDAR\nSUMMARY:Test\nEND:VCALENDAR\n```";
-            String cleaned = service.cleanIcs(dirty);
+            String cleaned = IcsUtils.cleanIcs(dirty);
             assertNotNull(cleaned);
             assertFalse(cleaned.contains("```"));
             assertTrue(cleaned.contains("BEGIN:VCALENDAR"));
@@ -99,7 +99,7 @@ public class GeminiServiceTest {
         @Test
         void testCleanIcs_removesGenericCodeBlock() {
             String dirty = "```\nBEGIN:VCALENDAR\nEND:VCALENDAR\n```";
-            String cleaned = service.cleanIcs(dirty);
+            String cleaned = IcsUtils.cleanIcs(dirty);
             assertFalse(cleaned.contains("```"));
             assertTrue(cleaned.contains("BEGIN:VCALENDAR"));
         }
@@ -107,12 +107,12 @@ public class GeminiServiceTest {
         @Test
         void testCleanIcs_alreadyClean() {
             String clean = "BEGIN:VCALENDAR\nSUMMARY:Test\nEND:VCALENDAR";
-            assertEquals(clean, service.cleanIcs(clean));
+            assertEquals(clean, IcsUtils.cleanIcs(clean));
         }
 
         @Test
         void testCleanIcs_null() {
-            assertNull(service.cleanIcs(null));
+            assertNull(IcsUtils.cleanIcs(null));
         }
 
         // --- generateIcs: successful responses ---

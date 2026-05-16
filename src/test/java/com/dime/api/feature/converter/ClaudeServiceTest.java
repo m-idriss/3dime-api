@@ -2,6 +2,7 @@ package com.dime.api.feature.converter;
 
 import com.dime.api.feature.shared.exception.ExternalServiceException;
 import com.dime.api.feature.shared.exception.ProcessingException;
+import com.dime.api.feature.converter.IcsUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,7 +38,7 @@ public class ClaudeServiceTest {
     @Test
     public void testCleanIcs_removesMarkdownIcsBlock() {
         String dirty = "```ics\nBEGIN:VCALENDAR\nSUMMARY:Test\nEND:VCALENDAR\n```";
-        String cleaned = service.cleanIcs(dirty);
+        String cleaned = IcsUtils.cleanIcs(dirty);
         assertNotNull(cleaned);
         assertFalse(cleaned.contains("```"));
         assertTrue(cleaned.contains("BEGIN:VCALENDAR"));
@@ -46,7 +47,7 @@ public class ClaudeServiceTest {
     @Test
     public void testCleanIcs_removesGenericCodeBlock() {
         String dirty = "```\nBEGIN:VCALENDAR\nEND:VCALENDAR\n```";
-        String cleaned = service.cleanIcs(dirty);
+        String cleaned = IcsUtils.cleanIcs(dirty);
         assertFalse(cleaned.contains("```"));
         assertTrue(cleaned.contains("BEGIN:VCALENDAR"));
     }
@@ -54,12 +55,12 @@ public class ClaudeServiceTest {
     @Test
     public void testCleanIcs_alreadyClean() {
         String clean = "BEGIN:VCALENDAR\nSUMMARY:Test\nEND:VCALENDAR";
-        assertEquals(clean, service.cleanIcs(clean));
+        assertEquals(clean, IcsUtils.cleanIcs(clean));
     }
 
     @Test
     public void testCleanIcs_null() {
-        assertNull(service.cleanIcs(null));
+        assertNull(IcsUtils.cleanIcs(null));
     }
 
     // --- generateIcs: API key validation ---
