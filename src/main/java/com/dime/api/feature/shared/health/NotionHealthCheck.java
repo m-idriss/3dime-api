@@ -29,6 +29,7 @@ public class NotionHealthCheck implements HealthCheck {
     @ConfigProperty(name = "notion.version")
     String version;
 
+    private final Object lock = new Object();
     volatile HealthCheckResponse cachedResponse;
     volatile long lastCheckedAt = 0;
 
@@ -38,9 +39,15 @@ public class NotionHealthCheck implements HealthCheck {
         if (cachedResponse != null && (now - lastCheckedAt) < CACHE_TTL_MS) {
             return cachedResponse;
         }
-        cachedResponse = doCheck();
-        lastCheckedAt = System.currentTimeMillis();
-        return cachedResponse;
+        synchronized (lock) {
+            now = System.currentTimeMillis();
+            if (cachedResponse != null && (now - lastCheckedAt) < CACHE_TTL_MS) {
+                return cachedResponse;
+            }
+            cachedResponse = doCheck();
+            lastCheckedAt = System.currentTimeMillis();
+            return cachedResponse;
+        }
     }
 
     HealthCheckResponse doCheck() {
