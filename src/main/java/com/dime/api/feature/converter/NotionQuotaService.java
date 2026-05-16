@@ -103,29 +103,38 @@ public class NotionQuotaService {
             return List.of();
 
         List<QuotaData> results = new ArrayList<>();
+        String cursor = null;
         try {
-            ObjectNode query = objectMapper.createObjectNode();
-            JsonNode response = notionClient.queryDatabase(BearerTokenUtil.ensureBearer(token), version, quotaDbId.get(), query);
+            do {
+                ObjectNode query = objectMapper.createObjectNode();
+                if (cursor != null) {
+                    query.put("start_cursor", cursor);
+                }
+                JsonNode response = notionClient.queryDatabase(BearerTokenUtil.ensureBearer(token), version, quotaDbId.get(), query);
 
-            if (response.has("results") && response.get("results").isArray()) {
-                for (JsonNode page : response.get("results")) {
-                    JsonNode props = page.get("properties");
-                    if (props != null) {
-                        String userId = getTitleContent(props.get("User ID"));
-                        long usageCount = getNumberContent(props.get("Usage Count"));
-                        String planStr = getSelectContent(props.get("Plan"));
-                        String lastResetStr = getDateContent(props.get("Last Reset"));
+                if (response.has("results") && response.get("results").isArray()) {
+                    for (JsonNode page : response.get("results")) {
+                        JsonNode props = page.get("properties");
+                        if (props != null) {
+                            String userId = getTitleContent(props.get("User ID"));
+                            long usageCount = getNumberContent(props.get("Usage Count"));
+                            String planStr = getSelectContent(props.get("Plan"));
+                            String lastResetStr = getDateContent(props.get("Last Reset"));
 
-                        if (userId != null && !userId.isEmpty()) {
-                            results.add(new QuotaData(
-                                    userId,
-                                    usageCount,
-                                    lastResetStr != null ? Instant.parse(lastResetStr) : Instant.now(),
-                                    PlanType.fromString(planStr)));
+                            if (userId != null && !userId.isEmpty()) {
+                                results.add(new QuotaData(
+                                        userId,
+                                        usageCount,
+                                        lastResetStr != null ? Instant.parse(lastResetStr) : Instant.now(),
+                                        PlanType.fromString(planStr)));
+                            }
                         }
                     }
                 }
-            }
+
+                boolean hasMore = response.path("has_more").asBoolean(false);
+                cursor = hasMore ? response.path("next_cursor").asText(null) : null;
+            } while (cursor != null);
         } catch (Exception e) {
             log.warn("Failed to fetch all from Notion (non-blocking)", e);
         }
