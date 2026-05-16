@@ -128,7 +128,7 @@ public class ClaudeService {
             JsonNode firstContent = response.get("content").get(0);
             if (firstContent != null && firstContent.has("text")) {
                 String text = firstContent.get("text").asText();
-                return cleanIcs(text);
+                return IcsUtils.cleanIcs(text);
             }
         }
 
@@ -136,7 +136,4 @@ public class ClaudeService {
         throw new ProcessingException("Claude API returned unexpected response format");
     }
 
-    String cleanIcs(String text) {
-        return IcsUtils.cleanIcs(text);
-    }
 }
