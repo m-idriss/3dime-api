@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Optional;
@@ -146,25 +147,22 @@ public class GeminiService {
     }
 
     String getAccessToken() throws IOException {
-        if (cachedCredentials == null) {
-            synchronized (this) {
-                if (cachedCredentials == null) {
-                    if (apiKeyJson.isPresent() && !apiKeyJson.get().trim().isEmpty()) {
-                        // Use the configured service account JSON
-                        log.debug("Using configured service account credentials");
-                        ByteArrayInputStream credentialsStream = new ByteArrayInputStream(apiKeyJson.get().getBytes());
-                        cachedCredentials = ServiceAccountCredentials.fromStream(credentialsStream)
-                                .createScoped(
-                                        Collections.singleton("https://www.googleapis.com/auth/generative-language"));
-                    } else {
-                        throw new IOException("Missing Gemini API credentials: apiKeyJson is empty");
-                    }
+        synchronized (this) {
+            if (cachedCredentials == null) {
+                if (apiKeyJson.isPresent() && !apiKeyJson.get().trim().isEmpty()) {
+                    log.debug("Using configured service account credentials");
+                    ByteArrayInputStream credentialsStream = new ByteArrayInputStream(
+                            apiKeyJson.get().getBytes(StandardCharsets.UTF_8));
+                    cachedCredentials = ServiceAccountCredentials.fromStream(credentialsStream)
+                            .createScoped(
+                                    Collections.singleton("https://www.googleapis.com/auth/generative-language"));
+                } else {
+                    throw new IOException("Missing Gemini API credentials: apiKeyJson is empty");
                 }
             }
+            cachedCredentials.refreshIfExpired();
+            return cachedCredentials.getAccessToken().getTokenValue();
         }
-
-        cachedCredentials.refreshIfExpired();
-        return cachedCredentials.getAccessToken().getTokenValue();
     }
 
     String cleanIcs(String text) {
