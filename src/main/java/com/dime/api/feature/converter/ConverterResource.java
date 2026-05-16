@@ -67,7 +67,8 @@ public class ConverterResource {
             @Context ContainerRequestContext requestContext) {
         long startTime = System.currentTimeMillis();
         String verifiedUid = (String) requestContext.getProperty(FirebaseAuthFilter.FIREBASE_UID);
-        String userId = verifiedUid != null ? verifiedUid : (request.userId != null ? request.userId : "anonymous");
+        String email = (String) requestContext.getProperty(FirebaseAuthFilter.FIREBASE_EMAIL);
+        String userId = verifiedUid != null ? verifiedUid : "anonymous";
         String domain = getDomain(headers);
         int fileCount = request.files != null ? request.files.size() : 0;
 
@@ -92,7 +93,7 @@ public class ConverterResource {
         }
 
         // Check Quota
-        QuotaService.QuotaCheckResult quota = quotaService.checkQuota(userId);
+        QuotaService.QuotaCheckResult quota = quotaService.checkQuota(userId, email);
         if (!quota.allowed()) {
             trackingService.logQuotaExceeded(userId, (int) (quota.limit() - quota.remaining()), (int) quota.limit(),
                     quota.plan().toString(), domain);
@@ -125,7 +126,7 @@ public class ConverterResource {
 
             // Success
             int eventCount = countEvents(icsContent);
-            quotaService.incrementUsage(userId);
+            quotaService.incrementUsage(userId, email);
             trackingService.logConversion(userId, fileCount, domain, eventCount,
                     System.currentTimeMillis() - startTime);
 

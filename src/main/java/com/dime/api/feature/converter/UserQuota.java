@@ -20,6 +20,8 @@ public class UserQuota {
     public Timestamp createdAt;
     public Timestamp updatedAt;
 
+    public String email;
+
     // Stripe subscription tracking
     public String stripeCustomerId;
     public String stripeSubscriptionId;
