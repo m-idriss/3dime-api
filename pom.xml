@@ -57,7 +57,7 @@
     <!-- Dependency Versions -->
     <quarkus-google-cloud-firestore.version>2.21.0</quarkus-google-cloud-firestore.version>
     <opentelemetry-grpc.version>2.1.0-alpha</opentelemetry-grpc.version>
-    <opentelemetry-semconv.version>1.29.0-alpha</opentelemetry-semconv.version>
+    <opentelemetry-semconv.version>1.41.1</opentelemetry-semconv.version>
     <dotenv-java.version>3.2.0</dotenv-java.version>
     <lombok.version>1.18.46</lombok.version>
   </properties>
