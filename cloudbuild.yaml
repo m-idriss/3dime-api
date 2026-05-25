@@ -35,6 +35,8 @@ steps:
       - '$_REGION'
       - '--platform'
       - 'managed'
+      - '--min-instances'
+      - '1'
       - '--update-env-vars'
       - 'FIRESTORE_ENABLE_TRACING=false'
 
