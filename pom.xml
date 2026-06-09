@@ -127,7 +127,7 @@
     <dependency>
       <groupId>com.stripe</groupId>
       <artifactId>stripe-java</artifactId>
-      <version>32.1.0</version>
+      <version>33.0.0</version>
     </dependency>
     <!-- Source: https://mvnrepository.com/artifact/org.mockito/mockito-core -->
     <dependency>
