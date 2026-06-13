@@ -21,8 +21,9 @@ public class RootResourceTest {
     public void testApiPathRedirectsToLoginPageWhenNotLoggedIn() {
         given()
             .redirects().follow(false)
-            .when().get("/api-docs")
+            .when().get("/v1/api-docs")
             .then()
+                .statusCode(302)
                 .header("Location", endsWith("/login.html"));
     }
 }
