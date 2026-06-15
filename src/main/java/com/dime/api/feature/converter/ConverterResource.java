@@ -97,7 +97,7 @@ public class ConverterResource {
         // Check Quota
         QuotaService.QuotaCheckResult quota = quotaService.checkQuota(userId, email);
         if (!quota.allowed()) {
-            trackingService.logQuotaExceeded(userId, (int) (quota.limit() - quota.remaining()), (int) quota.limit(),
+            trackingService.logQuotaExceeded(userId, email, (int) (quota.limit() - quota.remaining()), (int) quota.limit(),
                     quota.plan().toString(), domain);
 
             throw new QuotaException("You've reached your monthly conversion limit. Limit: " + quota.limit(),
@@ -111,7 +111,7 @@ public class ConverterResource {
                     : claudeService.generateIcs(request);
 
             if (icsContent == null || icsContent.isEmpty() || icsContent.equalsIgnoreCase("null")) {
-                trackingService.logConversionError(userId, fileCount, "No events found in images",
+                trackingService.logConversionError(userId, email, fileCount, "No events found in images",
                         System.currentTimeMillis() - startTime, domain);
                 throw new ProcessingException("No calendar events found in the provided images. " +
                         "Please ensure the images contain clear calendar information.",
@@ -119,7 +119,7 @@ public class ConverterResource {
             }
 
             if (!isValidIcs(icsContent)) {
-                trackingService.logConversionError(userId, fileCount, "Generated ICS is invalid",
+                trackingService.logConversionError(userId, email, fileCount, "Generated ICS is invalid",
                         System.currentTimeMillis() - startTime, domain);
                 throw new ProcessingException(
                         "The AI generated invalid calendar data. Please try again with clearer images.",
@@ -129,14 +129,14 @@ public class ConverterResource {
             // Success
             int eventCount = countEvents(icsContent);
             quotaService.incrementUsage(userId, email);
-            trackingService.logConversion(userId, fileCount, domain, eventCount,
+            trackingService.logConversion(userId, email, fileCount, domain, eventCount,
                     System.currentTimeMillis() - startTime);
 
             return Response.ok(new ConverterResponse(true, icsContent)).build();
 
         } catch (IOException e) {
             log.error("Error processing conversion request for user {}: {}", userId, e.getMessage(), e);
-            trackingService.logConversionError(userId, fileCount, e.getMessage(),
+            trackingService.logConversionError(userId, email, fileCount, e.getMessage(),
                     System.currentTimeMillis() - startTime, domain);
             throw new ProcessingException("Failed to process images for conversion: " + e.getMessage(), e);
         }
