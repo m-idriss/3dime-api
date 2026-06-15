@@ -64,20 +64,20 @@ public class TrackingService {
         return notionToken.isPresent() && trackingDbId.isPresent();
     }
 
-    public void logConversion(String userId, int fileCount, String domain, int eventCount, long duration) {
-        logEvent("conversion", userId, "Success", fileCount, eventCount, duration, null, domain);
+    public void logConversion(String userId, String email, int fileCount, String domain, int eventCount, long duration) {
+        logEvent("conversion", userId, email, "Success", fileCount, eventCount, duration, null, domain);
     }
 
-    public void logConversionError(String userId, int fileCount, String errorMessage, long duration, String domain) {
-        logEvent("conversion", userId, "Error", fileCount, 0, duration, errorMessage, domain);
+    public void logConversionError(String userId, String email, int fileCount, String errorMessage, long duration, String domain) {
+        logEvent("conversion", userId, email, "Error", fileCount, 0, duration, errorMessage, domain);
     }
 
-    public void logQuotaExceeded(String userId, int usageCount, int limit, String plan, String domain) {
+    public void logQuotaExceeded(String userId, String email, int usageCount, int limit, String plan, String domain) {
         String errorMessage = String.format("Quota exceeded: %d/%d (plan: %s)", usageCount, limit, plan);
-        logEvent("quota_exceeded", userId, "Error", usageCount, limit, 0, errorMessage, domain);
+        logEvent("quota_exceeded", userId, email, "Error", usageCount, limit, 0, errorMessage, domain);
     }
 
-    private void logEvent(String action, String userId, String status, int fileCount, int eventCount, long duration,
+    private void logEvent(String action, String userId, String email, String status, int fileCount, int eventCount, long duration,
             String errorMessage, String domain) {
         if (!isEnabled()) {
             log.debug("Tracking disabled: Notion token or DB ID missing");
@@ -92,6 +92,9 @@ public class TrackingService {
             ObjectNode properties = objectMapper.createObjectNode();
             addTitleProperty(properties, "Action", action);
             addRichTextProperty(properties, "User ID", userId);
+            if (email != null && !email.isBlank()) {
+                addRichTextProperty(properties, "Email", email);
+            }
             addDateProperty(properties, "Timestamp", Instant.now().toString());
             addSelectProperty(properties, "Status", status);
 

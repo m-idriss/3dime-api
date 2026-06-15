@@ -8,6 +8,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.util.Optional;
 
@@ -89,28 +90,37 @@ public class TrackingServiceTest {
 
         @Test
         void logConversion_whenEnabled_callsNotionClient() {
-            service.logConversion("user1", 2, "test.com", 3, 500L);
-            verify(mockNotionClient, times(1)).createPage(any(), any(), any());
+            service.logConversion("user1", "user@example.com", 2, "test.com", 3, 500L);
+            assertTrackedEmail("user@example.com");
         }
 
         @Test
         void logConversion_whenDisabled_neverCallsNotionClient() {
             service.notionToken = Optional.empty();
-            service.logConversion("user1", 2, "test.com", 3, 500L);
+            service.logConversion("user1", "user@example.com", 2, "test.com", 3, 500L);
             verify(mockNotionClient, never()).createPage(any(), any(), any());
+        }
+
+        @Test
+        void logConversion_withoutEmail_omitsEmailProperty() {
+            service.logConversion("anonymous", null, 1, "test.com", 1, 100L);
+
+            ArgumentCaptor<ObjectNode> pageCaptor = ArgumentCaptor.forClass(ObjectNode.class);
+            verify(mockNotionClient).createPage(any(), any(), pageCaptor.capture());
+            assertFalse(pageCaptor.getValue().get("properties").has("Email"));
         }
 
         @Test
         void logConversionError_longMessage_isTruncatedAndDoesNotThrow() {
             String longMessage = "e".repeat(2001);
-            assertDoesNotThrow(() -> service.logConversionError("user1", 1, longMessage, 100L, "test.com"));
-            verify(mockNotionClient, times(1)).createPage(any(), any(), any());
+            assertDoesNotThrow(() -> service.logConversionError("user1", "user@example.com", 1, longMessage, 100L, "test.com"));
+            assertTrackedEmail("user@example.com");
         }
 
         @Test
         void logQuotaExceeded_whenEnabled_callsNotionClient() {
-            service.logQuotaExceeded("user1", 10, 10, "FREE", "test.com");
-            verify(mockNotionClient, times(1)).createPage(any(), any(), any());
+            service.logQuotaExceeded("user1", "user@example.com", 10, 10, "FREE", "test.com");
+            assertTrackedEmail("user@example.com");
         }
 
         @Test
@@ -128,6 +138,15 @@ public class TrackingServiceTest {
             TrackingService.Statistics stats = service.getStatistics();
             assertEquals(0, stats.fileCount());
             assertEquals(0, stats.eventCount());
+        }
+
+        private void assertTrackedEmail(String expectedEmail) {
+            ArgumentCaptor<ObjectNode> pageCaptor = ArgumentCaptor.forClass(ObjectNode.class);
+            verify(mockNotionClient).createPage(any(), any(), pageCaptor.capture());
+
+            ObjectNode properties = (ObjectNode) pageCaptor.getValue().get("properties");
+            assertEquals(expectedEmail,
+                    properties.get("Email").get("rich_text").get(0).get("text").get("content").asText());
         }
     }
 }
