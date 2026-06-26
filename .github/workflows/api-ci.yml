@@ -25,15 +25,10 @@ jobs:
 
     env:
       MAVEN_OPTS: -Djava.awt.headless=true
-      GITHUB_TOKEN: ""
-      NOTION_TOKEN: ""
-      NOTION_TRACKING_DB_ID: ""
-      NOTION_CMS_DB_ID: ""
-      NOTION_QUOTA_DB_ID: ""
-      GEMINI_API_KEY: ""
-      CLAUDE_API_KEY: ""
-      STRIPE_SECRET_KEY: ""
-      STRIPE_WEBHOOK_SECRET: ""
+      NOTION_TOKEN: test-notion-token
+      NOTION_TRACKING_DB_ID: test-tracking-db-id
+      NOTION_CMS_DB_ID: test-cms-db-id
+      NOTION_QUOTA_DB_ID: test-quota-db-id
 
     steps:
       - name: Checkout
