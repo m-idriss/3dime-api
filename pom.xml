@@ -59,7 +59,7 @@
     <quarkus-google-cloud-firestore.version>2.22.0</quarkus-google-cloud-firestore.version>
     <!-- Firestore 3.38.0 calls GrpcTelemetry.newClientInterceptor(); 2.26+ renamed it. -->
     <opentelemetry-grpc.version>2.1.0-alpha</opentelemetry-grpc.version>
-    <opentelemetry-semconv.version>1.41.1</opentelemetry-semconv.version>
+    <opentelemetry-semconv.version>1.42.0</opentelemetry-semconv.version>
     <dotenv-java.version>3.2.0</dotenv-java.version>
     <lombok.version>1.18.46</lombok.version>
   </properties>
