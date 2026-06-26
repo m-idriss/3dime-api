@@ -83,7 +83,7 @@ public class CacheWarmup {
     private void runWarmupStep(String stepName, Runnable task) {
         try {
             task.run();
-        } catch (Throwable t) {
+        } catch (Exception t) {
             log.warn("{} failed during startup warmup: {}", stepName, t.getMessage(), t);
         }
     }

@@ -56,7 +56,7 @@ public class FirestoreHealthCheck implements HealthCheck {
                     .up()
                     .withData("latencyMs", latencyMs)
                     .build();
-        } catch (Throwable t) {
+        } catch (Exception t) {
             long latencyMs = System.currentTimeMillis() - start;
             log.warn("Firestore health check failed", t);
             return HealthCheckResponse.named(CHECK_NAME)

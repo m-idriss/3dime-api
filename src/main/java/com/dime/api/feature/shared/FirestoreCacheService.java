@@ -40,7 +40,7 @@ public class FirestoreCacheService {
                     return Optional.of(objectMapper.readValue(json, type));
                 }
             }
-        } catch (Throwable t) {
+        } catch (Exception t) {
             log.warn("Failed to read cache from Firestore for key: {}", key, t);
         }
         return Optional.empty();
@@ -55,7 +55,7 @@ public class FirestoreCacheService {
                     return Optional.of(objectMapper.readValue(json, type));
                 }
             }
-        } catch (Throwable t) {
+        } catch (Exception t) {
             log.warn("Failed to read cache from Firestore for key: {}", key, t);
         }
         return Optional.empty();
@@ -68,7 +68,7 @@ public class FirestoreCacheService {
                 firestore().collection(COLLECTION).document(key)
                         .set(Map.of("data", json, "updatedAt", Timestamp.now())).get(10, TimeUnit.SECONDS);
                 log.debug("Written cache to Firestore for key: {}", key);
-            } catch (Throwable t) {
+            } catch (Exception t) {
                 log.warn("Failed to write cache to Firestore for key: {}", key, t);
             }
         });

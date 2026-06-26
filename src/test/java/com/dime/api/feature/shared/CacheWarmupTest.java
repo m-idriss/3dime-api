@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -32,8 +33,8 @@ class CacheWarmupTest {
     }
 
     @Test
-    void runWarmupPhases_whenFirestoreWarmupThrowsError_doesNotAbortStartupSequence() {
-        doThrow(new NoSuchMethodError("io.opentelemetry.instrumentation.grpc.v1_6.GrpcTelemetry.newClientInterceptor()"))
+    void runWarmupPhases_whenFirestoreWarmupThrowsRecoverableError_doesNotAbortStartupSequence() {
+        doThrow(new RuntimeException("Firestore unavailable"))
                 .when(gitHubService).warmFromFirestore();
 
         assertDoesNotThrow(() -> cacheWarmup.runWarmupPhases());
@@ -45,8 +46,16 @@ class CacheWarmupTest {
     }
 
     @Test
+    void runWarmupPhases_whenFirestoreWarmupThrowsLinkageError_propagates() {
+        doThrow(new NoSuchMethodError("io.opentelemetry.instrumentation.grpc.v1_6.GrpcTelemetry.newClientInterceptor()"))
+                .when(gitHubService).warmFromFirestore();
+
+        assertThrows(NoSuchMethodError.class, () -> cacheWarmup.runWarmupPhases());
+    }
+
+    @Test
     void warmFromApis_whenOneWarmupStepThrowsError_continuesRemainingSteps() {
-        doThrow(new NoSuchMethodError("boom"))
+        doThrow(new RuntimeException("boom"))
                 .when(gitHubService).getUserInfo();
 
         assertDoesNotThrow(() -> cacheWarmup.warmFromApis());
@@ -59,4 +68,3 @@ class CacheWarmupTest {
         verify(trackingService, times(1)).getStatistics();
     }
 }
-
