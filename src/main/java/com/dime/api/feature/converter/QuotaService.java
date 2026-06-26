@@ -114,7 +114,7 @@ public class QuotaService {
 
             return new QuotaCheckResult(allowed, remaining, limit, userQuota.getPlanType());
 
-        } catch (Throwable t) {
+        } catch (Exception t) {
             log.error("Error checking quota for user {}", userId, t);
             // Default allow on error to not block users
             return new QuotaCheckResult(true, -1, -1, DEFAULT_PLAN);
@@ -156,11 +156,11 @@ public class QuotaService {
                                 quota.email);
                     }
                 }
-            } catch (Throwable t) {
+            } catch (Exception t) {
                 log.warn("Failed to sync to Notion for user {} (non-blocking)", userId, t);
             }
 
-        } catch (Throwable t) {
+        } catch (Exception t) {
             log.error("Error incrementing usage for user {}", userId, t);
         }
     }
@@ -175,7 +175,7 @@ public class QuotaService {
                 }
                 return userQuota;
             }
-        } catch (Throwable t) {
+        } catch (Exception t) {
             log.error("Error fetching quota status for {}", userId, t);
         }
         return null;
@@ -220,7 +220,7 @@ public class QuotaService {
                 DocumentSnapshot doc = result.getDocuments().get(0);
                 return new UserQuotaWrapper(doc.getId(), doc.toObject(UserQuota.class));
             }
-        } catch (Throwable t) {
+        } catch (Exception t) {
             log.error("Error searching user by email {}", email, t);
         }
         return null;
@@ -251,7 +251,7 @@ public class QuotaService {
                     .stream()
                     .map(doc -> new UserQuotaWrapper(doc.getId(), doc.toObject(UserQuota.class)))
                     .collect(Collectors.toList());
-        } catch (Throwable t) {
+        } catch (Exception t) {
             log.error("Error fetching all user quotas", t);
             return List.of();
         }
@@ -271,11 +271,11 @@ public class QuotaService {
                         quota.getPlanType(),
                         quota.periodStart != null ? quota.periodStart.toDate().toInstant() : Instant.now(),
                         quota.email);
-            } catch (Throwable t) {
+            } catch (Exception t) {
                 log.warn("Failed to sync to Notion for user {} after update (non-blocking)", userId, t);
             }
 
-        } catch (Throwable t) {
+        } catch (Exception t) {
             log.error("Error updating quota for user {}", userId, t);
         }
     }
@@ -319,11 +319,11 @@ public class QuotaService {
                                 quota.email);
                     }
                 }
-            } catch (Throwable t) {
+            } catch (Exception t) {
                 log.warn("Failed to sync plan update to Notion for user {} (non-blocking)", userId, t);
             }
 
-        } catch (Throwable t) {
+        } catch (Exception t) {
             log.error("Error updating plan for user {}", userId, t);
         }
     }
@@ -336,11 +336,11 @@ public class QuotaService {
             // Delete from Notion after deletion
             try {
                 notionQuotaService.deleteFromNotion(userId);
-            } catch (Throwable t) {
+            } catch (Exception t) {
                 log.warn("Failed to delete from Notion for user {} (non-blocking)", userId, t);
             }
 
-        } catch (Throwable t) {
+        } catch (Exception t) {
             log.error("Error deleting quota for user {}", userId, t);
         }
     }
@@ -436,7 +436,7 @@ public class QuotaService {
             log.info("Synced user {} from Notion to Firestore", data.userId());
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error updating user {} from Notion data", data.userId(), e);
-        } catch (Throwable t) {
+        } catch (Exception t) {
             log.error("Unexpected error updating user {} from Notion data", data.userId(), t);
         }
     }

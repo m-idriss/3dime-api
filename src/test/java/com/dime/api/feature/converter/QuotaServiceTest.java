@@ -80,14 +80,10 @@ class QuotaServiceTest {
     }
 
     @Test
-    public void testCheckQuota_handlesLinkageErrorFromFirestoreBean() {
+    public void testCheckQuota_doesNotSwallowLinkageErrorFromFirestoreBean() {
         when(firestoreInstanceMock.get())
                 .thenThrow(new NoSuchMethodError("GrpcTelemetry.newClientInterceptor"));
 
-        assertDoesNotThrow(() -> {
-            QuotaService.QuotaCheckResult result = quotaService.checkQuota("linkage-error-user", null);
-            assertTrue(result.allowed());
-            assertEquals(PlanType.FREE, result.plan());
-        });
+        assertThrows(NoSuchMethodError.class, () -> quotaService.checkQuota("linkage-error-user", null));
     }
 }

@@ -84,14 +84,10 @@ class FirestoreHealthCheckTest {
     }
 
     @Test
-    void testDown_onLinkageErrorDuringBeanInitialization() {
+    void testLinkageErrorDuringBeanInitialization_isNotSwallowed() {
         when(firestoreInstanceMock.get()).thenThrow(new NoSuchMethodError("GrpcTelemetry.newClientInterceptor"));
 
-        HealthCheckResponse response = check.doCheck();
-
-        assertEquals(HealthCheckResponse.Status.DOWN, response.getStatus());
-        assertTrue(response.getData().isPresent());
-        assertNotNull(response.getData().get().get("error"));
+        assertThrows(NoSuchMethodError.class, () -> check.doCheck());
     }
 
     @Test
