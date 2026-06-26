@@ -1,5 +1,7 @@
 package com.dime.api.feature.converter;
 
+import com.dime.api.feature.shared.exception.DatastoreUnavailableException;
+import com.dime.api.feature.shared.exception.ValidationException;
 import com.google.cloud.firestore.Firestore;
 import jakarta.enterprise.inject.Instance;
 import org.junit.jupiter.api.BeforeEach;
@@ -85,5 +87,21 @@ class QuotaServiceTest {
                 .thenThrow(new NoSuchMethodError("GrpcTelemetry.newClientInterceptor"));
 
         assertThrows(NoSuchMethodError.class, () -> quotaService.checkQuota("linkage-error-user", null));
+    }
+
+    @Test
+    public void testReserveQuota_requiresIdempotencyKey() {
+        assertThrows(ValidationException.class, () -> quotaService.reserveQuota("user1", null, null, 1));
+        assertThrows(ValidationException.class, () -> quotaService.reserveQuota("user1", null, " ", 1));
+
+        verifyNoInteractions(firestoreInstanceMock);
+    }
+
+    @Test
+    public void testReserveQuota_failsClosedWhenFirestoreUnavailable() {
+        when(firestoreMock.collection(any())).thenThrow(new RuntimeException("Firestore unavailable"));
+
+        assertThrows(DatastoreUnavailableException.class,
+                () -> quotaService.reserveQuota("user1", null, "request-1", 1));
     }
 }
