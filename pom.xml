@@ -51,6 +51,7 @@
 
     <!-- Maven Plugin Versions -->
     <compiler-plugin.version>3.15.0</compiler-plugin.version>
+    <dependency-plugin.version>3.9.0</dependency-plugin.version>
     <surefire-plugin.version>3.5.6</surefire-plugin.version>
     <enforcer-plugin.version>3.6.3</enforcer-plugin.version>
 
@@ -242,10 +243,24 @@
         </configuration>
       </plugin>
       <plugin>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>${dependency-plugin.version}</version>
+        <executions>
+          <execution>
+            <phase>initialize</phase>
+            <goals>
+              <goal>properties</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${surefire-plugin.version}</version>
         <configuration>
+          <argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
           <systemPropertyVariables>
+            <dotenv.enabled>false</dotenv.enabled>
             <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
             <maven.home>${maven.home}</maven.home>
           </systemPropertyVariables>
@@ -261,7 +276,9 @@
               <goal>verify</goal>
             </goals>
             <configuration>
+              <argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
               <systemPropertyVariables>
+                <dotenv.enabled>false</dotenv.enabled>
                 <native.image.path>${project.build.directory}/${project.build.finalName}-runner</native.image.path>
                 <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
                 <maven.home>${maven.home}</maven.home>
@@ -274,13 +291,6 @@
         <groupId>org.owasp</groupId>
         <artifactId>dependency-check-maven</artifactId>
         <version>12.2.2</version>
-        <executions>
-          <execution>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
-        </executions>
       </plugin>
       <plugin>
         <groupId>com.google.cloud.tools</groupId>
@@ -336,6 +346,33 @@
         <skipITs>false</skipITs>
         <quarkus.package.type>native</quarkus.package.type>
       </properties>
+    </profile>
+    <profile>
+      <id>security-scan</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.owasp</groupId>
+            <artifactId>dependency-check-maven</artifactId>
+            <version>12.2.2</version>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>check</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <formats>
+                <format>HTML</format>
+                <format>JSON</format>
+                <format>SARIF</format>
+              </formats>
+              <failBuildOnCVSS>9.0</failBuildOnCVSS>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
     </profile>
   </profiles>
 </project>

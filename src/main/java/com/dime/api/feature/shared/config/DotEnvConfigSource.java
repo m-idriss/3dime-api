@@ -14,17 +14,19 @@ public class DotEnvConfigSource implements ConfigSource {
 
     public DotEnvConfigSource() {
         Map<String, String> loadedProperties = new HashMap<>();
-        try {
-            // Load .env file, ignoring if missing
-            Dotenv dotenv = Dotenv.configure()
-                    .ignoreIfMissing()
-                    .load();
+        if (Boolean.parseBoolean(System.getProperty("dotenv.enabled", "true"))) {
+            try {
+                // Load .env file, ignoring if missing
+                Dotenv dotenv = Dotenv.configure()
+                        .ignoreIfMissing()
+                        .load();
 
-            for (io.github.cdimascio.dotenv.DotenvEntry entry : dotenv.entries()) {
-                loadedProperties.put(entry.getKey(), entry.getValue());
+                for (io.github.cdimascio.dotenv.DotenvEntry entry : dotenv.entries()) {
+                    loadedProperties.put(entry.getKey(), entry.getValue());
+                }
+            } catch (Exception e) {
+                // Ignore errors loading .env
             }
-        } catch (Exception e) {
-            // Ignore errors loading .env
         }
         this.properties = Collections.unmodifiableMap(loadedProperties);
     }

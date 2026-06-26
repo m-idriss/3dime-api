@@ -8,6 +8,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -24,7 +25,15 @@ public class CacheWarmup {
     @Inject
     TrackingService trackingService;
 
+    @ConfigProperty(name = "cache.warmup.enabled", defaultValue = "true")
+    boolean warmupEnabled;
+
     void onStart(@Observes StartupEvent event) {
+        if (!warmupEnabled) {
+            log.info("Cache warmup disabled by configuration");
+            return;
+        }
+
         log.info("Starting cache warmup...");
         CompletableFuture.runAsync(this::runWarmupPhases);
     }

@@ -77,7 +77,7 @@ docker run -p 8080:8080 \
 
 ## 📚 Documentation
 
-[API Reference](docs/api.md), [Configuration](docs/configuration.md), [Architecture](docs/architecture.md), [Deployment](docs/deployment.md), [Health Monitoring](docs/health.md), [Security](docs/security.md)
+[API Reference](docs/api.md), [Configuration](docs/configuration.md), [Architecture](docs/architecture.md), [Deployment](docs/deployment.md), [Health Monitoring](docs/health.md), [Security](docs/security.md), [CI](docs/ci.md)
 
 ---
 
