@@ -61,7 +61,7 @@ jobs:
         run: docker build --pull --tag 3dime-api:${{ github.sha }} .
 
       - name: Run Trivy scan
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: 3dime-api:${{ github.sha }}
           format: sarif
