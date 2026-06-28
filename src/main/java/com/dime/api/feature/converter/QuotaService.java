@@ -1,5 +1,8 @@
 package com.dime.api.feature.converter;
 
+import com.dime.api.feature.shared.exception.DatastoreUnavailableException;
+import com.dime.api.feature.shared.exception.QuotaException;
+import com.dime.api.feature.shared.exception.ValidationException;
 import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.*;
 import jakarta.annotation.PostConstruct;
@@ -11,8 +14,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.HashMap;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
@@ -27,6 +32,7 @@ import java.util.stream.Collectors;
 public class QuotaService {
 
     private static final String COLLECTION_NAME = "users";
+    private static final String RESERVATIONS_COLLECTION = "quotaReservations";
     private static final PlanType DEFAULT_PLAN = PlanType.FREE;
 
     @ConfigProperty(name = "quota.limit.free", defaultValue = "3")
@@ -40,6 +46,9 @@ public class QuotaService {
 
     @ConfigProperty(name = "quota.limit.unlimited", defaultValue = "1000000")
     long quotaLimitUnlimited;
+
+    @ConfigProperty(name = "quota.reservation.ttl-minutes", defaultValue = "15")
+    long reservationTtlMinutes;
 
     private volatile Map<PlanType, Long> quotaLimits;
 
@@ -60,6 +69,10 @@ public class QuotaService {
     NotionQuotaService notionQuotaService;
 
     public record QuotaCheckResult(boolean allowed, long remaining, long limit, PlanType plan) {
+    }
+
+    public record QuotaReservationResult(QuotaReservation reservation, boolean replay, long remaining, long limit,
+            PlanType plan) {
     }
 
     public record UserQuotaWrapper(String userId, UserQuota quota) {
@@ -119,6 +132,281 @@ public class QuotaService {
             // Default allow on error to not block users
             return new QuotaCheckResult(true, -1, -1, DEFAULT_PLAN);
         }
+    }
+
+    public QuotaReservationResult reserveQuota(@NonNull String userId, String email,
+            String idempotencyKey, int fileCount) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            throw new ValidationException("Idempotency-Key header is required for conversion requests.");
+        }
+        String normalizedKey = idempotencyKey.trim();
+
+        try {
+            DocumentReference docRef = firestore().collection(COLLECTION_NAME).document(userId);
+            DocumentReference reservationRef = docRef.collection(RESERVATIONS_COLLECTION).document(normalizedKey);
+
+            QuotaReservationResult result = firestore().runTransaction(transaction -> {
+                Timestamp now = Timestamp.now();
+                Timestamp expiresAt = timestampFromInstant(
+                        Instant.now().plus(reservationTtlMinutes, ChronoUnit.MINUTES));
+                DocumentSnapshot userSnapshot = transaction.get(docRef).get();
+                DocumentSnapshot reservationSnapshot = transaction.get(reservationRef).get();
+
+                UserQuota userQuota = userSnapshot.exists()
+                        ? userSnapshot.toObject(UserQuota.class)
+                        : null;
+                if (userSnapshot.exists() && userQuota == null) {
+                    throw new DatastoreUnavailableException("Unable to deserialize quota record.", null);
+                }
+
+                if (reservationSnapshot.exists()) {
+                    QuotaReservation existing = reservationSnapshot.toObject(QuotaReservation.class);
+                    if (existing != null) {
+                        QuotaReservationState state = existing.getStateType();
+                        if (state == QuotaReservationState.COMPLETED) {
+                            long remaining = Math.max(0, existing.quotaLimit - existing.quotaUsedAfterReservation);
+                            return new QuotaReservationResult(existing, true, remaining, existing.quotaLimit,
+                                    existing.getPlanType());
+                        }
+                        if (state == QuotaReservationState.RESERVED && !isExpiredReservation(existing)) {
+                            long remaining = Math.max(0, existing.quotaLimit - existing.quotaUsedAfterReservation);
+                            return new QuotaReservationResult(existing, true, remaining, existing.quotaLimit,
+                                    existing.getPlanType());
+                        }
+                    }
+                }
+
+                if (userQuota == null) {
+                    userQuota = new UserQuota(DEFAULT_PLAN, 0, quotaLimits.get(DEFAULT_PLAN), now, now, now);
+                    userQuota.email = email;
+                } else if (isNewMonth(userQuota.periodStart)) {
+                    userQuota.quotaUsed = 0;
+                    userQuota.periodStart = now;
+                }
+
+                PlanType plan = userQuota.getPlanType();
+                long limit = quotaLimits.getOrDefault(plan, quotaLimitFree);
+                if (userQuota.quotaUsed >= limit) {
+                    throw new QuotaException("You've reached your monthly conversion limit. Limit: " + limit,
+                            Map.of("limit", limit, "remaining", 0, "plan", plan));
+                }
+
+                long usedAfterReservation = userQuota.quotaUsed + 1;
+                Map<String, Object> quotaUpdates = new HashMap<>();
+                quotaUpdates.put("plan", plan.name());
+                quotaUpdates.put("quotaUsed", usedAfterReservation);
+                quotaUpdates.put("quotaLimit", limit);
+                quotaUpdates.put("periodStart", userQuota.periodStart);
+                quotaUpdates.put("updatedAt", now);
+                if (!userSnapshot.exists()) {
+                    quotaUpdates.put("createdAt", now);
+                }
+                if (email != null && (userQuota.email == null || userQuota.email.isBlank())) {
+                    quotaUpdates.put("email", email);
+                }
+
+                QuotaReservation reservation = new QuotaReservation();
+                reservation.idempotencyKey = normalizedKey;
+                reservation.setStateType(QuotaReservationState.RESERVED);
+                reservation.setPlanType(plan);
+                reservation.quotaLimit = limit;
+                reservation.quotaUsedAfterReservation = usedAfterReservation;
+                reservation.fileCount = fileCount;
+                reservation.periodStart = userQuota.periodStart;
+                reservation.reservedAt = now;
+                reservation.expiresAt = expiresAt;
+                reservation.updatedAt = now;
+
+                transaction.set(docRef, quotaUpdates, SetOptions.merge());
+                transaction.set(reservationRef, reservation);
+
+                long remaining = Math.max(0, limit - usedAfterReservation);
+                return new QuotaReservationResult(reservation, false, remaining, limit, plan);
+            }).get(10, TimeUnit.SECONDS);
+
+            if (!result.replay()) {
+                log.info("Reserved quota for user {} with state {}", userId, result.reservation().state);
+            }
+            return result;
+        } catch (QuotaException | ValidationException | DatastoreUnavailableException e) {
+            throw e;
+        } catch (ExecutionException e) {
+            throw unwrapReservationException("Quota datastore unavailable. Please retry shortly.", e);
+        } catch (Exception e) {
+            log.error("Quota reservation failed closed for user {}", userId, e);
+            throw new DatastoreUnavailableException("Quota datastore unavailable. Please retry shortly.", e);
+        }
+    }
+
+    public void completeReservation(@NonNull String userId, @NonNull String idempotencyKey,
+            String provider, String icsContent, int eventCount) {
+        transitionReservation(userId, idempotencyKey, provider, icsContent, eventCount, null,
+                QuotaReservationState.COMPLETED, false);
+    }
+
+    public void failReservation(@NonNull String userId, @NonNull String idempotencyKey,
+            String provider, String failureReason, boolean refund) {
+        transitionReservation(userId, idempotencyKey, provider, null, 0, failureReason,
+                refund ? QuotaReservationState.REFUNDED : QuotaReservationState.FAILED, refund);
+    }
+
+    public int reconcileExpiredReservations(int maxRecords) {
+        Timestamp now = Timestamp.now();
+        try {
+            QuerySnapshot expired = firestore().collectionGroup(RESERVATIONS_COLLECTION)
+                    .whereEqualTo("state", QuotaReservationState.RESERVED.name())
+                    .whereLessThan("expiresAt", now)
+                    .limit(Math.max(1, maxRecords))
+                    .get()
+                    .get(10, TimeUnit.SECONDS);
+
+            int reconciled = 0;
+            for (DocumentSnapshot reservationSnapshot : expired.getDocuments()) {
+                DocumentReference reservationRef = reservationSnapshot.getReference();
+                DocumentReference userRef = reservationRef.getParent().getParent();
+                if (userRef == null) {
+                    continue;
+                }
+                reconcileExpiredReservation(userRef, reservationRef);
+                reconciled++;
+            }
+            log.info("Reconciled {} expired quota reservations", reconciled);
+            return reconciled;
+        } catch (Exception e) {
+            log.error("Quota reservation reconciliation failed", e);
+            throw new DatastoreUnavailableException("Quota datastore unavailable during reconciliation.", e);
+        }
+    }
+
+    private void transitionReservation(@NonNull String userId, @NonNull String idempotencyKey,
+            String provider, String icsContent, int eventCount, String failureReason,
+            QuotaReservationState targetState, boolean refund) {
+        try {
+            DocumentReference docRef = firestore().collection(COLLECTION_NAME).document(userId);
+            DocumentReference reservationRef = docRef.collection(RESERVATIONS_COLLECTION).document(idempotencyKey.trim());
+
+            firestore().runTransaction(transaction -> {
+                Timestamp now = Timestamp.now();
+                DocumentSnapshot reservationSnapshot = transaction.get(reservationRef).get();
+                DocumentSnapshot userSnapshot = transaction.get(docRef).get();
+                if (!reservationSnapshot.exists()) {
+                    throw new ValidationException("Quota reservation not found for idempotency key.");
+                }
+
+                QuotaReservation reservation = reservationSnapshot.toObject(QuotaReservation.class);
+                if (reservation == null) {
+                    throw new DatastoreUnavailableException("Unable to deserialize quota reservation.", null);
+                }
+
+                QuotaReservationState currentState = reservation.getStateType();
+                if (currentState == QuotaReservationState.COMPLETED || currentState == QuotaReservationState.REFUNDED
+                        || currentState == QuotaReservationState.EXPIRED) {
+                    return null;
+                }
+
+                Map<String, Object> reservationUpdates = new HashMap<>();
+                reservationUpdates.put("state", targetState.name());
+                reservationUpdates.put("provider", provider);
+                reservationUpdates.put("updatedAt", now);
+                if (targetState == QuotaReservationState.COMPLETED) {
+                    reservationUpdates.put("completedAt", now);
+                    reservationUpdates.put("eventCount", eventCount);
+                    reservationUpdates.put("icsContent", icsContent);
+                } else {
+                    reservationUpdates.put("failedAt", now);
+                    reservationUpdates.put("failureReason", failureReason);
+                }
+
+                if (refund && currentState == QuotaReservationState.RESERVED && userSnapshot.exists()) {
+                    UserQuota userQuota = userSnapshot.toObject(UserQuota.class);
+                    if (userQuota != null) {
+                        transaction.update(docRef, Map.of(
+                                "quotaUsed", Math.max(0, userQuota.quotaUsed - 1),
+                                "updatedAt", now));
+                    }
+                }
+
+                transaction.update(reservationRef, reservationUpdates);
+                return null;
+            }).get(10, TimeUnit.SECONDS);
+
+            log.info("Quota reservation transition for user {} to {}", userId, targetState);
+            syncQuotaToNotion(userId, docRef);
+        } catch (ValidationException | DatastoreUnavailableException e) {
+            throw e;
+        } catch (ExecutionException e) {
+            throw unwrapReservationException("Quota datastore unavailable while updating reservation.", e);
+        } catch (Exception e) {
+            log.error("Quota reservation transition failed for user {}", userId, e);
+            throw new DatastoreUnavailableException("Quota datastore unavailable while updating reservation.", e);
+        }
+    }
+
+    private void reconcileExpiredReservation(DocumentReference docRef, DocumentReference reservationRef)
+            throws InterruptedException, ExecutionException, TimeoutException {
+        firestore().runTransaction(transaction -> {
+            Timestamp now = Timestamp.now();
+            DocumentSnapshot reservationSnapshot = transaction.get(reservationRef).get();
+            DocumentSnapshot userSnapshot = transaction.get(docRef).get();
+            if (!reservationSnapshot.exists()) {
+                return null;
+            }
+
+            QuotaReservation reservation = reservationSnapshot.toObject(QuotaReservation.class);
+            if (reservation == null || reservation.getStateType() != QuotaReservationState.RESERVED
+                    || !isExpiredReservation(reservation)) {
+                return null;
+            }
+
+            if (userSnapshot.exists()) {
+                UserQuota userQuota = userSnapshot.toObject(UserQuota.class);
+                if (userQuota != null) {
+                    transaction.update(docRef, Map.of(
+                            "quotaUsed", Math.max(0, userQuota.quotaUsed - 1),
+                            "updatedAt", now));
+                }
+            }
+
+            transaction.update(reservationRef, Map.of(
+                    "state", QuotaReservationState.EXPIRED.name(),
+                    "failedAt", now,
+                    "failureReason", "reservation_expired",
+                    "updatedAt", now));
+            return null;
+        }).get(10, TimeUnit.SECONDS);
+    }
+
+    private void syncQuotaToNotion(String userId, DocumentReference docRef) {
+        try {
+            DocumentSnapshot snapshot = docRef.get().get(5, TimeUnit.SECONDS);
+            if (snapshot.exists()) {
+                UserQuota quota = snapshot.toObject(UserQuota.class);
+                if (quota != null) {
+                    notionQuotaService.syncToNotion(
+                            userId,
+                            quota.quotaUsed,
+                            quota.getPlanType(),
+                            quota.periodStart != null ? quota.periodStart.toDate().toInstant() : Instant.now(),
+                            quota.email);
+                }
+            }
+        } catch (Exception t) {
+            log.warn("Failed to sync quota to Notion for user {} (non-blocking)", userId, t);
+        }
+    }
+
+    private RuntimeException unwrapReservationException(String datastoreMessage, ExecutionException e) {
+        Throwable cause = e.getCause();
+        if (cause instanceof QuotaException quotaException) {
+            return quotaException;
+        }
+        if (cause instanceof ValidationException validationException) {
+            return validationException;
+        }
+        if (cause instanceof DatastoreUnavailableException datastoreUnavailableException) {
+            return datastoreUnavailableException;
+        }
+        return new DatastoreUnavailableException(datastoreMessage, e);
     }
 
     public void incrementUsage(@NonNull String userId, String email) {
@@ -243,6 +531,15 @@ public class QuotaService {
         ZonedDateTime now = Instant.now().atZone(ZoneId.of("UTC"));
 
         return periodDate.getMonth() != now.getMonth() || periodDate.getYear() != now.getYear();
+    }
+
+    private boolean isExpiredReservation(QuotaReservation reservation) {
+        return reservation.expiresAt != null
+                && reservation.expiresAt.toDate().toInstant().isBefore(Instant.now());
+    }
+
+    private Timestamp timestampFromInstant(Instant instant) {
+        return Timestamp.ofTimeSecondsAndNanos(instant.getEpochSecond(), instant.getNano());
     }
 
     public List<UserQuotaWrapper> findAll() {

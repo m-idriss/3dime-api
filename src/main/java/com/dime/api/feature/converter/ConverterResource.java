@@ -3,6 +3,7 @@ package com.dime.api.feature.converter;
 import com.dime.api.feature.shared.exception.ProcessingException;
 import com.dime.api.feature.shared.exception.QuotaException;
 import com.dime.api.feature.shared.exception.ValidationException;
+import com.dime.api.feature.shared.exception.IdempotencyException;
 import com.dime.api.feature.shared.config.FirebaseAuthFilter;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -94,16 +95,25 @@ public class ConverterResource {
             }
         }
 
-        // Check Quota
-        QuotaService.QuotaCheckResult quota = quotaService.checkQuota(userId, email);
-        if (!quota.allowed()) {
-            trackingService.logQuotaExceeded(userId, email, (int) (quota.limit() - quota.remaining()), (int) quota.limit(),
-                    quota.plan().toString(), domain);
-
-            throw new QuotaException("You've reached your monthly conversion limit. Limit: " + quota.limit(),
-                    Map.of("limit", quota.limit(), "remaining", quota.remaining(), "plan", quota.plan()));
+        String idempotencyKey = headers.getHeaderString("Idempotency-Key");
+        QuotaService.QuotaReservationResult reservation;
+        try {
+            reservation = quotaService.reserveQuota(userId, email, idempotencyKey, fileCount);
+        } catch (QuotaException e) {
+            logQuotaExceeded(userId, email, domain, e);
+            throw e;
+        }
+        if (reservation.replay()) {
+            QuotaReservation existing = reservation.reservation();
+            if (existing.getStateType() == QuotaReservationState.COMPLETED && existing.icsContent != null) {
+                log.info("Replayed completed quota reservation for user {}", userId);
+                return Response.ok(new ConverterResponse(true, existing.icsContent)).build();
+            }
+            throw new IdempotencyException("A conversion with this Idempotency-Key is already in progress.",
+                    Map.of("state", existing.state));
         }
 
+        String provider = "gemini".equalsIgnoreCase(aiProvider) ? "gemini" : "claude";
         try {
             // Call AI provider
             String icsContent = "gemini".equalsIgnoreCase(aiProvider)
@@ -128,7 +138,7 @@ public class ConverterResource {
 
             // Success
             int eventCount = countEvents(icsContent);
-            quotaService.incrementUsage(userId, email);
+            quotaService.completeReservation(userId, idempotencyKey, provider, icsContent, eventCount);
             trackingService.logConversion(userId, email, fileCount, domain, eventCount,
                     System.currentTimeMillis() - startTime);
 
@@ -136,9 +146,16 @@ public class ConverterResource {
 
         } catch (IOException e) {
             log.error("Error processing conversion request for user {}: {}", userId, e.getMessage(), e);
+            quotaService.failReservation(userId, idempotencyKey, provider, e.getMessage(), true);
             trackingService.logConversionError(userId, email, fileCount, e.getMessage(),
                     System.currentTimeMillis() - startTime, domain);
             throw new ProcessingException("Failed to process images for conversion: " + e.getMessage(), e);
+        } catch (ProcessingException e) {
+            quotaService.failReservation(userId, idempotencyKey, provider, e.getMessage(), true);
+            throw e;
+        } catch (RuntimeException e) {
+            quotaService.failReservation(userId, idempotencyKey, provider, e.getMessage(), true);
+            throw e;
         }
     }
 
@@ -226,6 +243,29 @@ public class ConverterResource {
     private int countEvents(String ics) {
         if (ics.length() > 10_000_000) return -1;
         return ics.split("BEGIN:VEVENT").length - 1;
+    }
+
+    private void logQuotaExceeded(String userId, String email, String domain, QuotaException exception) {
+        long limit = -1;
+        long remaining = 0;
+        String plan = "UNKNOWN";
+        if (exception.getDetails() instanceof Map<?, ?> details) {
+            Object rawLimit = details.get("limit");
+            if (rawLimit instanceof Number number) {
+                limit = number.longValue();
+            }
+            Object rawRemaining = details.get("remaining");
+            if (rawRemaining instanceof Number number) {
+                remaining = number.longValue();
+            }
+            Object rawPlan = details.get("plan");
+            if (rawPlan != null) {
+                plan = rawPlan.toString();
+            }
+        }
+
+        trackingService.logQuotaExceeded(userId, email, (int) Math.max(0, limit - remaining), (int) limit, plan,
+                domain);
     }
 
     private static final Set<String> ALLOWED_MIME_TYPES = Set.of(
