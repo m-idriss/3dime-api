@@ -6,7 +6,8 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 @Data
 @NoArgsConstructor
-@Schema(description = "Response from image to calendar conversion")
+@Schema(description = "Successful image-to-calendar conversion",
+        requiredProperties = { "success", "icsContent" })
 public class ConverterResponse {
 
     @Schema(description = "Whether the conversion was successful", examples = "true")

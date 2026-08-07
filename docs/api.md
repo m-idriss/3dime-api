@@ -8,7 +8,17 @@
 | :--- | :--- | :--- |
 | `POST` | `/converter` | Convert images to `.ics` format |
 | `GET` | `/converter/quota-status?userId=` | Get user quota status |
+| `GET` | `/converter/plans` | Current plan quota limits |
 | `GET` | `/converter/statistics` | Global usage statistics |
+
+### Subscriptions & Donations
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/subscriptions` | Create a subscription checkout session |
+| `GET` | `/subscriptions/status?userId=` | Read subscription status |
+| `POST` | `/subscriptions/cancel` | Cancel the active subscription |
+| `POST` | `/donations/checkout` | Create a one-off donation checkout session |
 
 ### GitHub
 
@@ -35,6 +45,11 @@
 | `GET` | `/api-schema` | Full OpenAPI JSON |
 | `GET` | `/api-schema/public` | Public-facing OpenAPI schema |
 | `GET` | `/api-schema/admin` | Admin OpenAPI schema |
+
+All application paths above are relative to the `/v1` API prefix. The versioned build artifact is
+`contracts/openapi-v1.json`. Regenerate it after intentional contract changes with
+`scripts/update-openapi-contract.sh`; CI rejects source annotations that do not match the committed
+artifact.
 
 ---
 
@@ -119,6 +134,7 @@ New users are created automatically on first conversion with the `FREE` plan. Us
 |------|-------------------|
 | `FREE` | 3 |
 | `PRO` | 100 |
+| `BUSINESS` | 120 |
 | `UNLIMITED` | 1,000,000 |
 
 Quota data is stored in Firestore (`users` collection) and optionally synced to Notion.
@@ -138,13 +154,22 @@ All errors follow a standard envelope:
   "details": {},
   "timestamp": "2026-02-21T00:00:00Z",
   "path": "/converter",
-  "status": 400
+  "status": 400,
+  "requestId": "ad8a2704-c68f-4c4a-b6f8-8b49e391420a"
 }
 ```
+
+Every response also includes `X-Request-ID`. Clients may supply a safe request ID using the same
+header; otherwise the API generates one. User-facing behavior must use `errorCode`, not `message`.
 
 | HTTP Status | Error Code | Cause |
 |------------|------------|-------|
 | `400` | `VALIDATION_ERROR` | Invalid request input |
+| `401` | `AUTHENTICATION_REQUIRED` | Authentication is required |
+| `409` | `IDEMPOTENCY_CONFLICT` | The idempotency key is already in progress |
 | `422` | `PROCESSING_ERROR` | Valid input but processing failed |
 | `429` | `QUOTA_EXCEEDED` | Monthly conversion limit reached |
+| `429` | `RATE_LIMIT_EXCEEDED` | Endpoint rate limit reached |
 | `502` | `EXTERNAL_SERVICE_ERROR` | Upstream API failure (Gemini, Notion, GitHub) |
+| `503` | `DATASTORE_UNAVAILABLE` | Quota reservation cannot be guaranteed |
+| `500` | `INTERNAL_ERROR` | Unexpected internal failure |
