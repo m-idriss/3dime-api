@@ -4,6 +4,7 @@ import com.dime.api.feature.shared.exception.ProcessingException;
 import com.dime.api.feature.shared.exception.QuotaException;
 import com.dime.api.feature.shared.exception.ValidationException;
 import com.dime.api.feature.shared.exception.IdempotencyException;
+import com.dime.api.feature.shared.exception.ErrorResponse;
 import com.dime.api.feature.shared.config.FirebaseAuthFilter;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -19,6 +20,7 @@ import org.eclipse.microprofile.openapi.annotations.extensions.Extension;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
@@ -60,10 +62,14 @@ public class ConverterResource {
     @RateLimit(value = 10, window = 1, windowUnit = ChronoUnit.MINUTES)
     @Operation(summary = "Convert images to calendar events", description = "Uses AI to extract calendar events from images and convert them to ICS format")
     @APIResponse(responseCode = "200", description = "Conversion successful", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ConverterResponse.class)))
-    @APIResponse(responseCode = "400", description = "Invalid request data")
-    @APIResponse(responseCode = "422", description = "Processing error - valid input but conversion failed")
-    @APIResponse(responseCode = "429", description = "Quota exceeded")
-    @APIResponse(responseCode = "500", description = "Internal server error")
+    @APIResponse(responseCode = "400", description = "Invalid request data", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
+    @APIResponse(responseCode = "409", description = "Idempotency conflict", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
+    @APIResponse(responseCode = "422", description = "Processing error - valid input but conversion failed", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
+    @APIResponse(responseCode = "429", description = "Quota or rate limit exceeded", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
+    @APIResponse(responseCode = "502", description = "AI provider rejected the request", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
+    @APIResponse(responseCode = "503", description = "Quota datastore unavailable", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
+    @APIResponse(responseCode = "504", description = "AI provider timed out", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
+    @APIResponse(responseCode = "500", description = "Internal server error", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
     public Response convert(@Valid @NotNull ConverterRequest request, @Context HttpHeaders headers,
             @Context ContainerRequestContext requestContext) {
         long startTime = System.currentTimeMillis();
@@ -164,7 +170,7 @@ public class ConverterResource {
     @Produces(MediaType.APPLICATION_JSON)
     @RateLimit(value = 30, window = 1, windowUnit = ChronoUnit.MINUTES)
     @Operation(summary = "Get user quota status", description = "Retrieves the current quota usage and plan information for a user")
-    @APIResponse(responseCode = "200", description = "Quota status retrieved successfully", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = UserQuota.class)))
+    @APIResponse(responseCode = "200", description = "Quota status retrieved successfully", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = QuotaStatusResponse.class)))
     @APIResponse(responseCode = "404", description = "User not found")
     @APIResponse(responseCode = "500", description = "Internal server error")
     public Response getQuotaStatus(@QueryParam("userId") @NotNull String userId,
@@ -182,7 +188,7 @@ public class ConverterResource {
                         .build();
             }
 
-            return Response.ok(userQuota).build();
+            return Response.ok(QuotaStatusResponse.from(userQuota)).build();
         } catch (Exception e) {
             log.error("Error retrieving quota status for user {}: {}", effectiveUserId, e.getMessage(), e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -197,7 +203,7 @@ public class ConverterResource {
     @Operation(summary = "Get available plans", description = "Returns available plans and their quota limits")
     @APIResponse(responseCode = "200", description = "Plans retrieved",
         content = @Content(mediaType = MediaType.APPLICATION_JSON,
-            schema = @Schema(implementation = QuotaService.PlanInfo.class)))
+            schema = @Schema(implementation = QuotaService.PlanInfo.class, type = SchemaType.ARRAY)))
     public List<QuotaService.PlanInfo> getPlans() {
         log.info("GET /converter/plans called");
         return quotaService.getQuotaLimits();

@@ -19,8 +19,10 @@ public class ConverterIntegrationTest {
             .when().post("/v1/converter")
             .then()
                 .statusCode(400)
+                .header("X-Request-ID", not(isEmptyOrNullString()))
                 .body("success", is(false))
                 .body("errorCode", is("VALIDATION_ERROR"))
+                .body("requestId", not(isEmptyOrNullString()))
                 .body("message", notNullValue())
                 .body("timestamp", notNullValue());
     }
@@ -138,6 +140,8 @@ public class ConverterIntegrationTest {
                 .statusCode(200)
                 .body("size()", greaterThanOrEqualTo(4))
                 .body("plan", hasItems("FREE", "PRO", "BUSINESS", "UNLIMITED"))
-                .body("find { it.plan == 'FREE' }.limit", notNullValue());
+                .body("find { it.plan == 'FREE' }.limit", is(3))
+                .body("find { it.plan == 'PRO' }.limit", is(100))
+                .body("find { it.plan == 'BUSINESS' }.limit", is(120));
     }
 }

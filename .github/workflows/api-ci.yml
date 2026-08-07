@@ -44,6 +44,9 @@ jobs:
       - name: Run tests and package
         run: mvn -B -ntp clean verify
 
+      - name: Verify versioned OpenAPI contract
+        run: diff -u contracts/openapi-v1.json target/openapi/openapi.json
+
       - name: Capture first package manifest
         run: |
           test -f target/3dime-api-runner.jar
@@ -69,6 +72,13 @@ jobs:
             target/surefire-reports/**
             target/failsafe-reports/**
           if-no-files-found: ignore
+
+      - name: Publish OpenAPI contract
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-v1
+          path: target/openapi/openapi.json
+          if-no-files-found: error
 
       - name: Publish failure logs
         if: failure()

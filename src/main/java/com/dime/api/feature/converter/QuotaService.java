@@ -78,6 +78,9 @@ public class QuotaService {
     public record UserQuotaWrapper(String userId, UserQuota quota) {
     }
 
+    @org.eclipse.microprofile.openapi.annotations.media.Schema(
+            description = "Monthly conversion limit for a plan",
+            requiredProperties = { "plan", "limit" })
     public record PlanInfo(PlanType plan, long limit) {
     }
 

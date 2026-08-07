@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 /**
  * Standardized error response model used across all API endpoints
@@ -14,6 +15,8 @@ import java.time.Instant;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@Schema(description = "Canonical API error",
+        requiredProperties = { "success", "error", "message", "errorCode", "timestamp", "status", "requestId" })
 public class ErrorResponse {
     
     private boolean success = false;
@@ -24,6 +27,7 @@ public class ErrorResponse {
     private String timestamp;
     private String path;
     private int status;
+    private String requestId;
 
     public ErrorResponse(String error, String message) {
         this.error = error;
