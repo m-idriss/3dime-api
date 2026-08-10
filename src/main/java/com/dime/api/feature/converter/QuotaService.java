@@ -14,12 +14,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -33,6 +37,9 @@ public class QuotaService {
 
     private static final String COLLECTION_NAME = "users";
     private static final String RESERVATIONS_COLLECTION = "quotaReservations";
+    private static final String DEVICE_COLLECTION = "quotaDevices";
+    private static final String NETWORK_COLLECTION = "quotaNetworks";
+    private static final String GLOBAL_COLLECTION = "quotaGlobal";
     private static final PlanType DEFAULT_PLAN = PlanType.FREE;
 
     @ConfigProperty(name = "quota.limit.free", defaultValue = "3")
@@ -49,6 +56,18 @@ public class QuotaService {
 
     @ConfigProperty(name = "quota.reservation.ttl-minutes", defaultValue = "15")
     long reservationTtlMinutes;
+
+    @ConfigProperty(name = "quota.free.device-limit", defaultValue = "3")
+    long freeDeviceLimit;
+
+    @ConfigProperty(name = "quota.free.network-daily-limit", defaultValue = "12")
+    long freeNetworkDailyLimit;
+
+    @ConfigProperty(name = "quota.free.network-account-threshold", defaultValue = "3")
+    int freeNetworkAccountThreshold;
+
+    @ConfigProperty(name = "quota.free.global-daily-limit", defaultValue = "500")
+    long freeGlobalDailyLimit;
 
     private volatile Map<PlanType, Long> quotaLimits;
 
@@ -139,6 +158,11 @@ public class QuotaService {
 
     public QuotaReservationResult reserveQuota(@NonNull String userId, String email,
             String idempotencyKey, int fileCount) {
+        return reserveQuota(userId, email, idempotencyKey, fileCount, null);
+    }
+
+    public QuotaReservationResult reserveQuota(@NonNull String userId, String email,
+            String idempotencyKey, int fileCount, QuotaIdentityService.QuotaIdentity identity) {
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
             throw new ValidationException("Idempotency-Key header is required for conversion requests.");
         }
@@ -147,6 +171,16 @@ public class QuotaService {
         try {
             DocumentReference docRef = firestore().collection(COLLECTION_NAME).document(userId);
             DocumentReference reservationRef = docRef.collection(RESERVATIONS_COLLECTION).document(normalizedKey);
+            DocumentReference deviceRef = identity != null
+                    ? firestore().collection(DEVICE_COLLECTION).document(identity.deviceHash())
+                    : null;
+            DocumentReference networkRef = identity != null && identity.networkHash() != null
+                    ? firestore().collection(NETWORK_COLLECTION).document(identity.networkHash())
+                    : null;
+            String globalCounterId = LocalDate.now(ZoneOffset.UTC).toString();
+            DocumentReference globalRef = identity != null
+                    ? firestore().collection(GLOBAL_COLLECTION).document(globalCounterId)
+                    : null;
 
             QuotaReservationResult result = firestore().runTransaction(transaction -> {
                 Timestamp now = Timestamp.now();
@@ -194,6 +228,35 @@ public class QuotaService {
                             Map.of("limit", limit, "remaining", 0, "plan", plan));
                 }
 
+                QuotaSubject deviceSubject = null;
+                QuotaSubject networkSubject = null;
+                QuotaSubject globalSubject = null;
+                if (plan == PlanType.FREE && identity != null) {
+                    DocumentSnapshot deviceSnapshot = transaction.get(deviceRef).get();
+                    deviceSubject = monthlySubject(deviceSnapshot, "DEVICE", freeDeviceLimit, now);
+                    if (deviceSubject.usageCount >= freeDeviceLimit) {
+                        throw protectionQuotaException(limit, plan, "device");
+                    }
+
+                    if (networkRef != null) {
+                        DocumentSnapshot networkSnapshot = transaction.get(networkRef).get();
+                        networkSubject = dailySubject(networkSnapshot, "NETWORK", freeNetworkDailyLimit, now);
+                        HashSet<String> accounts = new HashSet<>(networkSubject.accountHashes);
+                        accounts.add(identity.accountHash());
+                        if (networkSubject.usageCount >= freeNetworkDailyLimit
+                                && accounts.size() >= freeNetworkAccountThreshold) {
+                            throw protectionQuotaException(limit, plan, "network");
+                        }
+                        networkSubject.accountHashes = new ArrayList<>(accounts);
+                    }
+
+                    DocumentSnapshot globalSnapshot = transaction.get(globalRef).get();
+                    globalSubject = dailySubject(globalSnapshot, "GLOBAL", freeGlobalDailyLimit, now);
+                    if (globalSubject.usageCount >= freeGlobalDailyLimit) {
+                        throw protectionQuotaException(limit, plan, "service_capacity");
+                    }
+                }
+
                 long usedAfterReservation = userQuota.quotaUsed + 1;
                 Map<String, Object> quotaUpdates = new HashMap<>();
                 quotaUpdates.put("plan", plan.name());
@@ -219,8 +282,26 @@ public class QuotaService {
                 reservation.reservedAt = now;
                 reservation.expiresAt = expiresAt;
                 reservation.updatedAt = now;
+                reservation.freeProtectionApplied = plan == PlanType.FREE && identity != null;
+                if (reservation.freeProtectionApplied) {
+                    reservation.deviceHash = identity.deviceHash();
+                    reservation.networkHash = identity.networkHash();
+                    reservation.globalCounterId = globalCounterId;
+                }
 
                 transaction.set(docRef, quotaUpdates, SetOptions.merge());
+                if (deviceSubject != null) {
+                    incrementSubject(deviceSubject, now);
+                    transaction.set(deviceRef, deviceSubject);
+                }
+                if (networkSubject != null) {
+                    incrementSubject(networkSubject, now);
+                    transaction.set(networkRef, networkSubject);
+                }
+                if (globalSubject != null) {
+                    incrementSubject(globalSubject, now);
+                    transaction.set(globalRef, globalSubject);
+                }
                 transaction.set(reservationRef, reservation);
 
                 long remaining = Math.max(0, limit - usedAfterReservation);
@@ -307,6 +388,14 @@ public class QuotaService {
                     return null;
                 }
 
+                Map<DocumentReference, DocumentSnapshot> protectionSnapshots = new HashMap<>();
+                if (refund && currentState == QuotaReservationState.RESERVED
+                        && reservation.freeProtectionApplied) {
+                    for (DocumentReference protectionRef : protectionReferences(reservation)) {
+                        protectionSnapshots.put(protectionRef, transaction.get(protectionRef).get());
+                    }
+                }
+
                 Map<String, Object> reservationUpdates = new HashMap<>();
                 reservationUpdates.put("state", targetState.name());
                 reservationUpdates.put("provider", provider);
@@ -327,6 +416,9 @@ public class QuotaService {
                                 "quotaUsed", Math.max(0, userQuota.quotaUsed - 1),
                                 "updatedAt", now));
                     }
+                }
+                if (!protectionSnapshots.isEmpty()) {
+                    refundProtectionCounters(transaction, protectionSnapshots, now);
                 }
 
                 transaction.update(reservationRef, reservationUpdates);
@@ -361,6 +453,14 @@ public class QuotaService {
                 return null;
             }
 
+
+            Map<DocumentReference, DocumentSnapshot> protectionSnapshots = new HashMap<>();
+            if (reservation.freeProtectionApplied) {
+                for (DocumentReference protectionRef : protectionReferences(reservation)) {
+                    protectionSnapshots.put(protectionRef, transaction.get(protectionRef).get());
+                }
+            }
+
             if (userSnapshot.exists()) {
                 UserQuota userQuota = userSnapshot.toObject(UserQuota.class);
                 if (userQuota != null) {
@@ -368,6 +468,9 @@ public class QuotaService {
                             "quotaUsed", Math.max(0, userQuota.quotaUsed - 1),
                             "updatedAt", now));
                 }
+            }
+            if (!protectionSnapshots.isEmpty()) {
+                refundProtectionCounters(transaction, protectionSnapshots, now);
             }
 
             transaction.update(reservationRef, Map.of(
@@ -457,6 +560,10 @@ public class QuotaService {
     }
 
     public UserQuota getQuotaStatus(@NonNull String userId) {
+        return getQuotaStatus(userId, null);
+    }
+
+    public UserQuota getQuotaStatus(@NonNull String userId, QuotaIdentityService.QuotaIdentity identity) {
         try {
             DocumentSnapshot document = firestore().collection(COLLECTION_NAME).document(userId).get().get(5, TimeUnit.SECONDS);
             if (document.exists()) {
@@ -464,12 +571,51 @@ public class QuotaService {
                 if (userQuota != null && isNewMonth(userQuota.periodStart)) {
                     userQuota.quotaUsed = 0; // Virtual reset for display
                 }
+                if (userQuota != null && userQuota.getPlanType() == PlanType.FREE && identity != null) {
+                    applyProtectionStatus(userQuota, identity);
+                }
                 return userQuota;
+            }
+            if (identity != null) {
+                Timestamp now = Timestamp.now();
+                UserQuota newUserQuota = new UserQuota(
+                        DEFAULT_PLAN, 0, quotaLimits.get(DEFAULT_PLAN), now, now, now);
+                applyProtectionStatus(newUserQuota, identity);
+                return newUserQuota;
             }
         } catch (Exception t) {
             log.error("Error fetching quota status for {}", userId, t);
         }
         return null;
+    }
+
+    private void applyProtectionStatus(UserQuota userQuota, QuotaIdentityService.QuotaIdentity identity)
+            throws InterruptedException, ExecutionException, TimeoutException {
+        long effectiveLimit = Math.min(quotaLimits.getOrDefault(PlanType.FREE, quotaLimitFree), freeDeviceLimit);
+        DocumentSnapshot deviceSnapshot = firestore().collection(DEVICE_COLLECTION)
+                .document(identity.deviceHash()).get().get(5, TimeUnit.SECONDS);
+        QuotaSubject device = monthlySubject(deviceSnapshot, "DEVICE", freeDeviceLimit, Timestamp.now());
+        long effectiveUsed = Math.max(userQuota.quotaUsed, device.usageCount);
+
+        boolean restricted = false;
+        if (identity.networkHash() != null) {
+            DocumentSnapshot networkSnapshot = firestore().collection(NETWORK_COLLECTION)
+                    .document(identity.networkHash()).get().get(5, TimeUnit.SECONDS);
+            QuotaSubject network = dailySubject(networkSnapshot, "NETWORK", freeNetworkDailyLimit, Timestamp.now());
+            HashSet<String> accounts = new HashSet<>(network.accountHashes);
+            accounts.add(identity.accountHash());
+            restricted = network.usageCount >= freeNetworkDailyLimit
+                    && accounts.size() >= freeNetworkAccountThreshold;
+        }
+
+        String globalCounterId = LocalDate.now(ZoneOffset.UTC).toString();
+        DocumentSnapshot globalSnapshot = firestore().collection(GLOBAL_COLLECTION)
+                .document(globalCounterId).get().get(5, TimeUnit.SECONDS);
+        QuotaSubject global = dailySubject(globalSnapshot, "GLOBAL", freeGlobalDailyLimit, Timestamp.now());
+        restricted = restricted || global.usageCount >= freeGlobalDailyLimit;
+
+        userQuota.quotaLimit = effectiveLimit;
+        userQuota.quotaUsed = restricted ? effectiveLimit : Math.min(effectiveLimit, effectiveUsed);
     }
 
     private UserQuota createUser(@NonNull String userId, String email) throws ExecutionException, InterruptedException, TimeoutException {
@@ -543,6 +689,80 @@ public class QuotaService {
 
     private Timestamp timestampFromInstant(Instant instant) {
         return Timestamp.ofTimeSecondsAndNanos(instant.getEpochSecond(), instant.getNano());
+    }
+
+    private QuotaSubject monthlySubject(DocumentSnapshot snapshot, String type, long limit, Timestamp now) {
+        QuotaSubject subject = snapshot.exists() ? snapshot.toObject(QuotaSubject.class) : null;
+        if (subject == null || isNewMonth(subject.periodStart)) {
+            subject = newSubject(type, limit, now, Instant.now().plus(62, ChronoUnit.DAYS));
+        }
+        subject.quotaLimit = limit;
+        return subject;
+    }
+
+    private QuotaSubject dailySubject(DocumentSnapshot snapshot, String type, long limit, Timestamp now) {
+        QuotaSubject subject = snapshot.exists() ? snapshot.toObject(QuotaSubject.class) : null;
+        if (subject == null || !isSameUtcDay(subject.periodStart, now)) {
+            subject = newSubject(type, limit, now, Instant.now().plus(3, ChronoUnit.DAYS));
+        }
+        subject.quotaLimit = limit;
+        return subject;
+    }
+
+    private QuotaSubject newSubject(String type, long limit, Timestamp now, Instant expiresAt) {
+        QuotaSubject subject = new QuotaSubject();
+        subject.subjectType = type;
+        subject.quotaLimit = limit;
+        subject.periodStart = now;
+        subject.createdAt = now;
+        subject.updatedAt = now;
+        subject.expiresAt = timestampFromInstant(expiresAt);
+        return subject;
+    }
+
+    private boolean isSameUtcDay(Timestamp first, Timestamp second) {
+        if (first == null || second == null) {
+            return false;
+        }
+        LocalDate firstDate = first.toDate().toInstant().atZone(ZoneOffset.UTC).toLocalDate();
+        LocalDate secondDate = second.toDate().toInstant().atZone(ZoneOffset.UTC).toLocalDate();
+        return firstDate.equals(secondDate);
+    }
+
+    private void incrementSubject(QuotaSubject subject, Timestamp now) {
+        subject.usageCount++;
+        subject.updatedAt = now;
+    }
+
+    private QuotaException protectionQuotaException(long accountLimit, PlanType plan, String scope) {
+        return new QuotaException("The free conversion allowance for this device or network has been reached.",
+                Map.of("limit", accountLimit, "remaining", 0, "plan", plan, "scope", scope));
+    }
+
+    private List<DocumentReference> protectionReferences(QuotaReservation reservation) {
+        List<DocumentReference> references = new ArrayList<>();
+        if (reservation.deviceHash != null && !reservation.deviceHash.isBlank()) {
+            references.add(firestore().collection(DEVICE_COLLECTION).document(reservation.deviceHash));
+        }
+        if (reservation.networkHash != null && !reservation.networkHash.isBlank()) {
+            references.add(firestore().collection(NETWORK_COLLECTION).document(reservation.networkHash));
+        }
+        if (reservation.globalCounterId != null && !reservation.globalCounterId.isBlank()) {
+            references.add(firestore().collection(GLOBAL_COLLECTION).document(reservation.globalCounterId));
+        }
+        return references;
+    }
+
+    private void refundProtectionCounters(Transaction transaction,
+            Map<DocumentReference, DocumentSnapshot> snapshots, Timestamp now) {
+        for (Map.Entry<DocumentReference, DocumentSnapshot> entry : snapshots.entrySet()) {
+            QuotaSubject subject = entry.getValue().toObject(QuotaSubject.class);
+            if (subject != null) {
+                transaction.update(entry.getKey(), Map.of(
+                        "usageCount", Math.max(0, subject.usageCount - 1),
+                        "updatedAt", now));
+            }
+        }
     }
 
     public List<UserQuotaWrapper> findAll() {

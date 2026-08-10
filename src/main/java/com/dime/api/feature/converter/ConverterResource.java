@@ -4,6 +4,7 @@ import com.dime.api.feature.shared.exception.ProcessingException;
 import com.dime.api.feature.shared.exception.QuotaException;
 import com.dime.api.feature.shared.exception.ValidationException;
 import com.dime.api.feature.shared.exception.IdempotencyException;
+import com.dime.api.feature.shared.exception.AuthenticationException;
 import com.dime.api.feature.shared.exception.ErrorResponse;
 import com.dime.api.feature.shared.config.FirebaseAuthFilter;
 import jakarta.inject.Inject;
@@ -45,6 +46,9 @@ public class ConverterResource {
     QuotaService quotaService;
 
     @Inject
+    QuotaIdentityService quotaIdentityService;
+
+    @Inject
     GeminiService geminiService;
 
     @Inject
@@ -63,6 +67,7 @@ public class ConverterResource {
     @Operation(summary = "Convert images to calendar events", description = "Uses AI to extract calendar events from images and convert them to ICS format")
     @APIResponse(responseCode = "200", description = "Conversion successful", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ConverterResponse.class)))
     @APIResponse(responseCode = "400", description = "Invalid request data", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
+    @APIResponse(responseCode = "401", description = "Verified Google authentication required", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
     @APIResponse(responseCode = "409", description = "Idempotency conflict", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
     @APIResponse(responseCode = "422", description = "Processing error - valid input but conversion failed", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
     @APIResponse(responseCode = "429", description = "Quota or rate limit exceeded", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
@@ -70,14 +75,21 @@ public class ConverterResource {
     @APIResponse(responseCode = "503", description = "Quota datastore unavailable", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
     @APIResponse(responseCode = "504", description = "AI provider timed out", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
     @APIResponse(responseCode = "500", description = "Internal server error", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
-    public Response convert(@Valid @NotNull ConverterRequest request, @Context HttpHeaders headers,
+    public Response convert(@Valid @NotNull ConverterRequest request,
+            @HeaderParam("X-Installation-ID") String installationId, @Context HttpHeaders headers,
             @Context ContainerRequestContext requestContext) {
         long startTime = System.currentTimeMillis();
         String verifiedUid = (String) requestContext.getProperty(FirebaseAuthFilter.FIREBASE_UID);
+        Boolean emailVerified = (Boolean) requestContext.getProperty(FirebaseAuthFilter.FIREBASE_EMAIL_VERIFIED);
+        if (verifiedUid == null || !Boolean.TRUE.equals(emailVerified)) {
+            throw new AuthenticationException("A verified Google account is required to convert files.");
+        }
         String rawEmail = (String) requestContext.getProperty(FirebaseAuthFilter.FIREBASE_EMAIL);
         String email = rawEmail != null && rawEmail.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
                 ? rawEmail : null;
-        String userId = verifiedUid != null ? verifiedUid : "anonymous";
+        String userId = verifiedUid;
+        QuotaIdentityService.QuotaIdentity quotaIdentity = quotaIdentityService.resolve(
+                userId, installationId, requestContext);
         String domain = getDomain(headers);
         int fileCount = request.files != null ? request.files.size() : 0;
 
@@ -104,7 +116,7 @@ public class ConverterResource {
         String idempotencyKey = headers.getHeaderString("Idempotency-Key");
         QuotaService.QuotaReservationResult reservation;
         try {
-            reservation = quotaService.reserveQuota(userId, email, idempotencyKey, fileCount);
+            reservation = quotaService.reserveQuota(userId, email, idempotencyKey, fileCount, quotaIdentity);
         } catch (QuotaException e) {
             logQuotaExceeded(userId, email, domain, e);
             throw e;
@@ -171,16 +183,24 @@ public class ConverterResource {
     @RateLimit(value = 30, window = 1, windowUnit = ChronoUnit.MINUTES)
     @Operation(summary = "Get user quota status", description = "Retrieves the current quota usage and plan information for a user")
     @APIResponse(responseCode = "200", description = "Quota status retrieved successfully", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = QuotaStatusResponse.class)))
+    @APIResponse(responseCode = "401", description = "Verified Google authentication required", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
     @APIResponse(responseCode = "404", description = "User not found")
     @APIResponse(responseCode = "500", description = "Internal server error")
     public Response getQuotaStatus(@QueryParam("userId") @NotNull String userId,
+            @HeaderParam("X-Installation-ID") String installationId,
             @Context ContainerRequestContext requestContext) {
         String verifiedUid = (String) requestContext.getProperty(FirebaseAuthFilter.FIREBASE_UID);
-        String effectiveUserId = verifiedUid != null ? verifiedUid : userId;
+        Boolean emailVerified = (Boolean) requestContext.getProperty(FirebaseAuthFilter.FIREBASE_EMAIL_VERIFIED);
+        if (verifiedUid == null || !Boolean.TRUE.equals(emailVerified)) {
+            throw new AuthenticationException("A verified Google account is required to view quota status.");
+        }
+        String effectiveUserId = verifiedUid;
+        QuotaIdentityService.QuotaIdentity quotaIdentity = quotaIdentityService.resolve(
+                effectiveUserId, installationId, requestContext);
         log.info("GET /converter/quotaStatus endpoint called for user: {}", effectiveUserId);
 
         try {
-            UserQuota userQuota = quotaService.getQuotaStatus(effectiveUserId);
+            UserQuota userQuota = quotaService.getQuotaStatus(effectiveUserId, quotaIdentity);
 
             if (userQuota == null) {
                 return Response.status(Response.Status.NOT_FOUND)

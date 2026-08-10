@@ -39,6 +39,11 @@ The `.env` file is loaded via `dotenv-java` through `DotEnvConfigSource`. It is 
 | `GEMINI_SYSTEM_PROMPT` | *(empty)* | System-level Gemini prompt |
 | `PORT` | `8080` | HTTP server port |
 | `GOOGLE_CLOUD_PROJECT` | *(empty)* | GCP project ID for telemetry |
+| `QUOTA_IDENTITY_PEPPER` | `AUTH_SESSION_ENCRYPTION_KEY` | HMAC secret for pseudonymized quota identities; set a dedicated production secret when possible |
+| `QUOTA_FREE_DEVICE_LIMIT` | `3` | Monthly free conversions shared by one browser installation |
+| `QUOTA_FREE_NETWORK_DAILY_LIMIT` | `12` | Daily free-conversion threshold for the shared-network safeguard |
+| `QUOTA_FREE_NETWORK_ACCOUNT_THRESHOLD` | `3` | Distinct accounts required before the network safeguard blocks |
+| `QUOTA_FREE_GLOBAL_DAILY_LIMIT` | `500` | Daily free-conversion safety ceiling for AI spend |
 
 ---
 
@@ -70,3 +75,6 @@ Quarkus profile prefixes scope configuration to specific environments:
 | Dev (`%dev`) | `*` (all origins) |
 
 Allowed methods: `GET, PUT, POST, DELETE, PATCH, OPTIONS` | Max age: 24 hours
+
+The converter accepts `X-Installation-ID`. Current web clients send a stable random identifier;
+Firestore receives only HMAC-derived document identifiers, never the raw header or raw IP address.

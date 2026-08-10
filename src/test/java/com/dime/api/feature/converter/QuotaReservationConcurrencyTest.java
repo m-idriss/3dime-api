@@ -18,6 +18,8 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -44,6 +46,10 @@ class QuotaReservationConcurrencyTest {
         quotaService.quotaLimitBusiness = 120;
         quotaService.quotaLimitUnlimited = 1_000_000;
         quotaService.reservationTtlMinutes = 15;
+        quotaService.freeDeviceLimit = 3;
+        quotaService.freeNetworkDailyLimit = 12;
+        quotaService.freeNetworkAccountThreshold = 3;
+        quotaService.freeGlobalDailyLimit = 500;
         quotaService.init();
 
         firestore = new InMemoryFirestoreHarness();
@@ -124,21 +130,66 @@ class QuotaReservationConcurrencyTest {
         assertEquals(0, firestore.reservations.size());
     }
 
+    @Test
+    void changingAccountDoesNotResetTheInstallationAllowance() {
+        for (int i = 0; i < 3; i++) {
+            firestore.userQuota = null; // Represents a fresh Firebase account document.
+            quotaService.reserveQuota("account-" + i, null, "switch-" + i, 1,
+                    new QuotaIdentityService.QuotaIdentity("shared-device", null, "account-hash-" + i));
+        }
+
+        firestore.userQuota = null;
+        QuotaException blocked = assertThrows(QuotaException.class,
+                () -> quotaService.reserveQuota("account-4", null, "switch-4", 1,
+                        new QuotaIdentityService.QuotaIdentity("shared-device", null, "account-hash-4")));
+
+        assertEquals("device", ((Map<?, ?>) blocked.getDetails()).get("scope"));
+        assertEquals(3, firestore.subject("quotaDevices", "shared-device").usageCount);
+    }
+
+    @Test
+    void failedConversionRefundsAccountAndProtectionCounters() {
+        QuotaIdentityService.QuotaIdentity identity =
+                new QuotaIdentityService.QuotaIdentity("device-refund", "network-refund", "account-refund");
+
+        quotaService.reserveQuota("refund-user", null, "refund-key", 1, identity);
+        quotaService.failReservation("refund-user", "refund-key", "claude", "provider failure", true);
+
+        assertEquals(0, firestore.userQuota.quotaUsed);
+        assertEquals(0, firestore.subject("quotaDevices", "device-refund").usageCount);
+        assertEquals(0, firestore.subject("quotaNetworks", "network-refund").usageCount);
+        assertEquals(0, firestore.subject("quotaGlobal", LocalDate.now(ZoneOffset.UTC).toString()).usageCount);
+        assertEquals(QuotaReservationState.REFUNDED,
+                firestore.reservations.get("refund-key").getStateType());
+    }
+
     private static class InMemoryFirestoreHarness {
 
         final Firestore firestore = mock(Firestore.class);
         final CollectionReference users = mock(CollectionReference.class);
+        final CollectionReference devices = mock(CollectionReference.class);
+        final CollectionReference networks = mock(CollectionReference.class);
+        final CollectionReference globals = mock(CollectionReference.class);
         final DocumentReference userDoc = mock(DocumentReference.class);
         final CollectionReference reservationCollection = mock(CollectionReference.class);
         final Transaction transaction = mock(Transaction.class);
         final Map<String, QuotaReservation> reservations = new HashMap<>();
         final Map<DocumentReference, String> reservationKeys = new IdentityHashMap<>();
         final Map<String, DocumentReference> reservationRefs = new HashMap<>();
+        final Map<String, DocumentReference> subjectRefs = new HashMap<>();
+        final Map<DocumentReference, QuotaSubject> subjects = new IdentityHashMap<>();
         UserQuota userQuota;
 
         InMemoryFirestoreHarness() {
             when(firestore.collection("users")).thenReturn(users);
+            when(firestore.collection("quotaDevices")).thenReturn(devices);
+            when(firestore.collection("quotaNetworks")).thenReturn(networks);
+            when(firestore.collection("quotaGlobal")).thenReturn(globals);
             when(users.document(any())).thenReturn(userDoc);
+            when(userDoc.get()).thenAnswer(ignored -> ApiFutures.immediateFuture(snapshotFor(userDoc)));
+            mockSubjectCollection(devices, "quotaDevices");
+            mockSubjectCollection(networks, "quotaNetworks");
+            mockSubjectCollection(globals, "quotaGlobal");
             when(userDoc.collection("quotaReservations")).thenReturn(reservationCollection);
             when(reservationCollection.document(any())).thenAnswer(invocation -> {
                 String key = invocation.getArgument(0);
@@ -178,11 +229,32 @@ class QuotaReservationConcurrencyTest {
             }).when(transaction).update(any(DocumentReference.class), any(Map.class));
         }
 
+        private void mockSubjectCollection(CollectionReference collection, String collectionName) {
+            when(collection.document(any())).thenAnswer(invocation -> {
+                String id = invocation.getArgument(0);
+                synchronized (this) {
+                    return subjectRefs.computeIfAbsent(collectionName + ":" + id,
+                            ignored -> mock(DocumentReference.class));
+                }
+            });
+        }
+
+        QuotaSubject subject(String collectionName, String id) {
+            return subjects.get(subjectRefs.get(collectionName + ":" + id));
+        }
+
         private DocumentSnapshot snapshotFor(DocumentReference ref) {
             DocumentSnapshot snapshot = mock(DocumentSnapshot.class);
             if (ref == userDoc) {
                 when(snapshot.exists()).thenReturn(userQuota != null);
                 when(snapshot.toObject(UserQuota.class)).thenReturn(userQuota);
+                return snapshot;
+            }
+
+            QuotaSubject subject = subjects.get(ref);
+            if (subject != null || subjectRefs.containsValue(ref)) {
+                when(snapshot.exists()).thenReturn(subject != null);
+                when(snapshot.toObject(QuotaSubject.class)).thenReturn(subject);
                 return snapshot;
             }
 
@@ -202,6 +274,11 @@ class QuotaReservationConcurrencyTest {
                 return;
             }
 
+            if (value instanceof QuotaSubject subject && subjectRefs.containsValue(ref)) {
+                subjects.put(ref, subject);
+                return;
+            }
+
             String key = reservationKeys.get(ref);
             if (key != null && value instanceof QuotaReservation reservation) {
                 reservations.put(key, reservation);
@@ -215,6 +292,15 @@ class QuotaReservationConcurrencyTest {
 
             if (ref == userDoc && userQuota != null) {
                 applyQuotaUpdates(userQuota, updates);
+                return;
+            }
+
+            QuotaSubject subject = subjects.get(ref);
+            if (subject != null) {
+                Object usageCount = updates.get("usageCount");
+                if (usageCount instanceof Number valueNumber) {
+                    subject.usageCount = valueNumber.longValue();
+                }
                 return;
             }
 
