@@ -22,6 +22,10 @@ public class QuotaReservation {
     public String provider;
     public String failureReason;
     public String icsContent;
+    public String deviceHash;
+    public String networkHash;
+    public String globalCounterId;
+    public boolean freeProtectionApplied;
     public Timestamp periodStart;
     public Timestamp reservedAt;
     public Timestamp completedAt;

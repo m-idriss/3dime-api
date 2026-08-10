@@ -16,6 +16,7 @@ public class FirebaseAuthFilter implements ContainerRequestFilter {
 
     public static final String FIREBASE_UID = "firebase.uid";
     public static final String FIREBASE_EMAIL = "firebase.email";
+    public static final String FIREBASE_EMAIL_VERIFIED = "firebase.emailVerified";
 
     @Inject
     Instance<FirebaseAuth> firebaseAuth;
@@ -37,6 +38,7 @@ public class FirebaseAuthFilter implements ContainerRequestFilter {
             FirebaseToken decodedToken = firebaseAuth.get().verifyIdToken(token);
             requestContext.setProperty(FIREBASE_UID, decodedToken.getUid());
             requestContext.setProperty(FIREBASE_EMAIL, decodedToken.getEmail());
+            requestContext.setProperty(FIREBASE_EMAIL_VERIFIED, decodedToken.isEmailVerified());
             log.debug("Firebase token verified for user: {}", decodedToken.getUid());
         } catch (FirebaseAuthException e) {
             log.warn("Invalid Firebase token: {}", e.getMessage());

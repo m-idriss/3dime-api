@@ -168,7 +168,7 @@ header; otherwise the API generates one. User-facing behavior must use `errorCod
 | `401` | `AUTHENTICATION_REQUIRED` | Authentication is required |
 | `409` | `IDEMPOTENCY_CONFLICT` | The idempotency key is already in progress |
 | `422` | `PROCESSING_ERROR` | Valid input but processing failed |
-| `429` | `QUOTA_EXCEEDED` | Monthly conversion limit reached |
+| `429` | `QUOTA_EXCEEDED` | Account, installation, shared-network, or service-capacity allowance reached |
 | `429` | `RATE_LIMIT_EXCEEDED` | Endpoint rate limit reached |
 | `502` | `EXTERNAL_SERVICE_ERROR` | Upstream API failure (Gemini, Notion, GitHub) |
 | `503` | `DATASTORE_UNAVAILABLE` | Quota reservation cannot be guaranteed |

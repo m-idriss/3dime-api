@@ -49,9 +49,9 @@ public class ConverterIntegrationTest {
             .body(validRequest)
             .when().post("/v1/converter")
             .then()
-                .statusCode(anyOf(is(200), is(422), is(500), is(502), is(503))) // Accept various responses depending on config
+                .statusCode(401)
                 .body("success", notNullValue())
-                .body("timestamp", notNullValue());
+                .body("errorCode", is("AUTHENTICATION_REQUIRED"));
     }
 
     @Test
@@ -74,10 +74,9 @@ public class ConverterIntegrationTest {
             .body(validRequest)
             .when().post("/v1/converter")
             .then()
-                .statusCode(400)
+                .statusCode(401)
                 .body("success", is(false))
-                .body("errorCode", is("VALIDATION_ERROR"))
-                .body("message", containsString("Idempotency-Key"));
+                .body("errorCode", is("AUTHENTICATION_REQUIRED"));
     }
 
     @Test
@@ -99,10 +98,9 @@ public class ConverterIntegrationTest {
             .body(invalidRequest)
             .when().post("/v1/converter")
             .then()
-                .statusCode(400)
+                .statusCode(401)
                 .body("success", is(false))
-                .body("errorCode", is("VALIDATION_ERROR"))
-                .body("message", containsString("empty"));
+                .body("errorCode", is("AUTHENTICATION_REQUIRED"));
     }
 
     @Test
@@ -111,8 +109,8 @@ public class ConverterIntegrationTest {
             .param("userId", "test-user")
             .when().get("/v1/converter/quota-status")
             .then()
-                .statusCode(anyOf(is(200), is(404), is(500))) // User may or may not exist; 500 if Firestore unavailable
-                .body(notNullValue());
+                .statusCode(401)
+                .body("errorCode", is("AUTHENTICATION_REQUIRED"));
     }
 
     @Test 
