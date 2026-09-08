@@ -128,7 +128,9 @@ public class ConverterResource {
             QuotaReservation existing = reservation.reservation();
             if (existing.getStateType() == QuotaReservationState.COMPLETED && existing.icsContent != null) {
                 log.info("Replayed completed quota reservation for user {}", userId);
-                return Response.ok(new ConverterResponse(true, existing.icsContent)).build();
+                CalendarNormalizer.NormalizedCalendar replayed =
+                        calendarNormalizer.normalize(existing.icsContent, request.timeZone);
+                return Response.ok(new ConverterResponse(true, replayed.icsContent(), replayed.warnings())).build();
             }
             throw new IdempotencyException("A conversion with this Idempotency-Key is already in progress.",
                     Map.of("state", existing.state));

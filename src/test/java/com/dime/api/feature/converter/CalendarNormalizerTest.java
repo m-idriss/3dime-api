@@ -149,6 +149,23 @@ class CalendarNormalizerTest {
         assertTrue(result.contains("\r\n "));
     }
 
+    @Test
+    void safelyRenormalizesStoredCalendarOnIdempotencyReplay() {
+        String providerIcs = calendar("""
+                BEGIN:VEVENT
+                SUMMARY:Replay-safe event
+                DTSTART:20260915T183000
+                DTEND:20260915T193000
+                END:VEVENT
+                """);
+
+        CalendarNormalizer.NormalizedCalendar first = normalizer.normalize(providerIcs, "Europe/Paris");
+        CalendarNormalizer.NormalizedCalendar replay = normalizer.normalize(first.icsContent(), "Europe/Paris");
+
+        assertEquals(first.icsContent(), replay.icsContent());
+        assertTrue(replay.warnings().isEmpty());
+    }
+
     private String calendar(String events) {
         return "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n" + events.strip() + "\r\nEND:VCALENDAR\r\n";
     }

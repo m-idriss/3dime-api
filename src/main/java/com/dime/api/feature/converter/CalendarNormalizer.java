@@ -214,10 +214,11 @@ public class CalendarNormalizer {
             lines.add("END:VEVENT");
         }
         lines.add("END:VCALENDAR");
-        return lines.stream()
-                .map(this::fold)
-                .reduce((left, right) -> left + "\r\n" + right)
-                .orElse("") + "\r\n";
+        StringBuilder output = new StringBuilder();
+        for (String line : lines) {
+            output.append(fold(line)).append("\r\n");
+        }
+        return output.toString();
     }
 
     /**
@@ -297,7 +298,7 @@ public class CalendarNormalizer {
         try {
             return ZoneId.of(value);
         } catch (DateTimeException e) {
-            throw invalid("invalid_timezone", "The requested calendar timezone is invalid.");
+            throw invalid("invalid_timezone", "The calendar timezone is invalid.");
         }
     }
 
