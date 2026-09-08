@@ -115,7 +115,7 @@ public class GeminiServiceTest {
             assertNull(IcsUtils.cleanIcs(null));
         }
 
-        // --- generateIcs: successful responses ---
+        // --- generateCalendar: successful responses ---
 
         @Test
         void testGenerateIcs_validResponse_returnsIcsContent() throws IOException {
@@ -126,7 +126,7 @@ public class GeminiServiceTest {
             request.currentDate = "2026-02-22";
             request.timeZone = "UTC";
 
-            String result = service.generateIcs(request);
+            String result = service.generateCalendar(request);
 
             assertNotNull(result);
             assertTrue(result.contains("BEGIN:VCALENDAR"));
@@ -137,7 +137,7 @@ public class GeminiServiceTest {
             String icsContent = "```ics\nBEGIN:VCALENDAR\nBEGIN:VEVENT\nSUMMARY:Test\nEND:VEVENT\nEND:VCALENDAR\n```";
             when(mockClient.generateContent(any(), any(), any())).thenReturn(buildSuccessResponse(icsContent));
 
-            String result = service.generateIcs(buildRequestWithBase64Image());
+            String result = service.generateCalendar(buildRequestWithBase64Image());
 
             assertFalse(result.contains("```"));
             assertTrue(result.startsWith("BEGIN:VCALENDAR"));
@@ -151,10 +151,10 @@ public class GeminiServiceTest {
             ConverterRequest request = buildRequestWithBase64Image();
             // currentDate and timeZone intentionally left null
 
-            assertDoesNotThrow(() -> service.generateIcs(request));
+            assertDoesNotThrow(() -> service.generateCalendar(request));
         }
 
-        // --- generateIcs: error cases ---
+        // --- generateCalendar: error cases ---
 
         @Test
         void testGenerateIcs_finishReasonNotStop_throwsProcessingException() {
@@ -164,7 +164,7 @@ public class GeminiServiceTest {
             candidate.putObject("content").putArray("parts").addObject().put("text", "Partial");
             when(mockClient.generateContent(any(), any(), any())).thenReturn(response);
 
-            assertThrows(ProcessingException.class, () -> service.generateIcs(buildRequestWithBase64Image()));
+            assertThrows(ProcessingException.class, () -> service.generateCalendar(buildRequestWithBase64Image()));
         }
 
         @Test
@@ -173,7 +173,7 @@ public class GeminiServiceTest {
             errorResponse.putObject("error").put("message", "API quota exceeded");
             when(mockClient.generateContent(any(), any(), any())).thenReturn(errorResponse);
 
-            assertThrows(ExternalServiceException.class, () -> service.generateIcs(buildRequestWithBase64Image()));
+            assertThrows(ExternalServiceException.class, () -> service.generateCalendar(buildRequestWithBase64Image()));
         }
 
         @Test
@@ -181,7 +181,7 @@ public class GeminiServiceTest {
             when(mockClient.generateContent(any(), any(), any()))
                     .thenThrow(new RuntimeException("Connection refused"));
 
-            assertThrows(ExternalServiceException.class, () -> service.generateIcs(buildRequestWithBase64Image()));
+            assertThrows(ExternalServiceException.class, () -> service.generateCalendar(buildRequestWithBase64Image()));
         }
 
         @Test
@@ -190,10 +190,10 @@ public class GeminiServiceTest {
             response.putArray("candidates"); // empty array
             when(mockClient.generateContent(any(), any(), any())).thenReturn(response);
 
-            assertThrows(ProcessingException.class, () -> service.generateIcs(buildRequestWithBase64Image()));
+            assertThrows(ProcessingException.class, () -> service.generateCalendar(buildRequestWithBase64Image()));
         }
 
-        // --- generateIcs: image handling ---
+        // --- generateCalendar: image handling ---
 
         @Test
         void testGenerateIcs_urlBasedImage_skippedWithWarning() throws IOException {
@@ -206,7 +206,7 @@ public class GeminiServiceTest {
             request.files = List.of(file);
 
             // Should not throw — URL images are skipped with a log warning
-            assertDoesNotThrow(() -> service.generateIcs(request));
+            assertDoesNotThrow(() -> service.generateCalendar(request));
         }
 
         @Test
@@ -221,7 +221,7 @@ public class GeminiServiceTest {
             base64File.dataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
             request.files = List.of(urlFile, base64File);
 
-            String result = service.generateIcs(request);
+            String result = service.generateCalendar(request);
             assertNotNull(result);
             verify(mockClient, times(1)).generateContent(any(), any(), any());
         }
