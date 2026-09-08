@@ -55,6 +55,9 @@ public class ConverterResource {
     ClaudeService claudeService;
 
     @Inject
+    CalendarNormalizer calendarNormalizer;
+
+    @Inject
     TrackingService trackingService;
 
     @ConfigProperty(name = "ai.provider", defaultValue = "claude")
@@ -131,36 +134,25 @@ public class ConverterResource {
                     Map.of("state", existing.state));
         }
 
-        String provider = "gemini".equalsIgnoreCase(aiProvider) ? "gemini" : "claude";
+        CalendarAiProvider selectedProvider = "gemini".equalsIgnoreCase(aiProvider) ? geminiService : claudeService;
+        String provider = selectedProvider.name();
         try {
-            // Call AI provider
-            String icsContent = "gemini".equalsIgnoreCase(aiProvider)
-                    ? geminiService.generateIcs(request)
-                    : claudeService.generateIcs(request);
-
-            if (icsContent == null || icsContent.isEmpty() || icsContent.equalsIgnoreCase("null")) {
-                trackingService.logConversionError(userId, email, fileCount, "No events found in images",
-                        System.currentTimeMillis() - startTime, domain);
-                throw new ProcessingException("No calendar events found in the provided images. " +
-                        "Please ensure the images contain clear calendar information.",
-                        Map.of("reason", "no_events_detected", "fileCount", fileCount));
-            }
-
-            if (!isValidIcs(icsContent)) {
-                trackingService.logConversionError(userId, email, fileCount, "Generated ICS is invalid",
-                        System.currentTimeMillis() - startTime, domain);
-                throw new ProcessingException(
-                        "The AI generated invalid calendar data. Please try again with clearer images.",
-                        Map.of("reason", "invalid_ics_format", "fileCount", fileCount));
-            }
+            // Provider output is untrusted: parse into the shared typed model,
+            // validate every event, then generate the public ICS server-side.
+            String providerOutput = selectedProvider.generateCalendar(request);
+            CalendarNormalizer.NormalizedCalendar normalized =
+                    calendarNormalizer.normalize(providerOutput, request.timeZone);
+            String icsContent = normalized.icsContent();
 
             // Success
-            int eventCount = countEvents(icsContent);
+            int eventCount = normalized.eventCount();
             quotaService.completeReservation(userId, idempotencyKey, provider, icsContent, eventCount);
             trackingService.logConversion(userId, email, fileCount, domain, eventCount,
                     System.currentTimeMillis() - startTime);
+            log.info("Calendar conversion completed: provider={}, result=success, latencyMs={}, eventCount={}",
+                    provider, System.currentTimeMillis() - startTime, eventCount);
 
-            return Response.ok(new ConverterResponse(true, icsContent)).build();
+            return Response.ok(new ConverterResponse(true, icsContent, normalized.warnings())).build();
 
         } catch (IOException e) {
             log.error("Error processing conversion request for user {}: {}", userId, e.getMessage(), e);
@@ -170,9 +162,15 @@ public class ConverterResource {
             throw new ProcessingException("Failed to process images for conversion: " + e.getMessage(), e);
         } catch (ProcessingException e) {
             quotaService.failReservation(userId, idempotencyKey, provider, e.getMessage(), true);
+            trackingService.logConversionError(userId, email, fileCount, e.getMessage(),
+                    System.currentTimeMillis() - startTime, domain);
+            log.warn("Calendar conversion failed: provider={}, result=processing_error, latencyMs={}",
+                    provider, System.currentTimeMillis() - startTime);
             throw e;
         } catch (RuntimeException e) {
             quotaService.failReservation(userId, idempotencyKey, provider, e.getMessage(), true);
+            log.warn("Calendar conversion failed: provider={}, result=runtime_error, latencyMs={}",
+                    provider, System.currentTimeMillis() - startTime);
             throw e;
         }
     }
@@ -256,19 +254,6 @@ public class ConverterResource {
             }
         }
         return "unknown";
-    }
-
-    private boolean isValidIcs(String ics) {
-        if (ics == null)
-            return false;
-        String trimmed = ics.trim();
-        return trimmed.startsWith("BEGIN:VCALENDAR") && trimmed.contains("BEGIN:VEVENT")
-                && trimmed.endsWith("END:VCALENDAR");
-    }
-
-    private int countEvents(String ics) {
-        if (ics.length() > 10_000_000) return -1;
-        return ics.split("BEGIN:VEVENT").length - 1;
     }
 
     private void logQuotaExceeded(String userId, String email, String domain, QuotaException exception) {

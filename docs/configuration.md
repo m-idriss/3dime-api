@@ -37,6 +37,11 @@ The `.env` file is loaded via `dotenv-java` through `DotEnvConfigSource`. It is 
 | `GEMINI_MODEL` | `gemini-2.0-flash-lite-preview-02-05` | Gemini model name |
 | `GEMINI_BASE_MESSAGE` | *(empty)* | User prompt template (`{today}` and `{tz}` placeholders) |
 | `GEMINI_SYSTEM_PROMPT` | *(empty)* | System-level Gemini prompt |
+| `AI_PROVIDER` | `gemini` | Active calendar provider: `gemini` or `claude` |
+| `CLAUDE_API_KEY` | *(empty)* | Anthropic API key; required only when `AI_PROVIDER=claude` |
+| `CLAUDE_MODEL` | `claude-sonnet-4-5` | Claude model name |
+| `CLAUDE_BASE_MESSAGE` | *(empty)* | User prompt template (`{today}` and `{tz}` placeholders) |
+| `CLAUDE_SYSTEM_PROMPT` | *(empty)* | System-level Claude prompt |
 | `PORT` | `8080` | HTTP server port |
 | `GOOGLE_CLOUD_PROJECT` | *(empty)* | GCP project ID for telemetry |
 | `QUOTA_IDENTITY_PEPPER` | `AUTH_SESSION_ENCRYPTION_KEY` | HMAC secret for pseudonymized quota identities; set a dedicated production secret when possible |

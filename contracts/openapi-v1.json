@@ -92,6 +92,13 @@
           },
           "details" : {
             "description" : "Additional error details"
+          },
+          "warnings" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            },
+            "description" : "Non-blocking review warnings produced during calendar normalization"
           }
         }
       },
