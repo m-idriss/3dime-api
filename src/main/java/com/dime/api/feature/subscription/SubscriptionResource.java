@@ -59,12 +59,6 @@ public class SubscriptionResource {
             throw new AuthenticationException("Authentication required to subscribe");
         }
 
-        UserQuota current = quotaService.getQuotaStatus(userId);
-        if (current != null && (current.stripeSubscriptionId != null
-                || current.getPlanType() != com.dime.api.feature.converter.PlanType.FREE)) {
-            throw new ValidationException("An existing subscription must be managed before starting another one.");
-        }
-
         log.info("Creating checkout session for user {} (plan={}, cycle={})",
                 userId, request.planId(), request.billingCycle());
 

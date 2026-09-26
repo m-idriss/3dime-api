@@ -11,6 +11,31 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class StripePurchaseTest {
+    @Test void checkoutRetriesUseSameStripeIdempotencyKey() throws Exception {
+        StripeService service = new StripeService();
+        service.checkoutStore = mock(SubscriptionCheckoutStore.class);
+        service.pricePlusMonthly = java.util.Optional.of("price_monthly");
+        service.successUrl = "https://example.com/success"; service.cancelUrl = "https://example.com/cancel";
+        var slot = new SubscriptionCheckoutStore.Slot("monthly", "price_monthly", "test@example.com");
+        when(service.checkoutStore.acquire(anyString(), anyString(), anyString(), any())).thenReturn(slot);
+        Price price = new Price(); price.setActive(true); price.setCurrency("eur"); price.setUnitAmount(299L);
+        Price.Recurring recurrence = new Price.Recurring(); recurrence.setInterval("month"); recurrence.setIntervalCount(1L); price.setRecurring(recurrence);
+        Session session = new Session(); session.setId("cs_same"); session.setStatus("open"); session.setUrl("https://checkout.stripe.com/same");
+        try (var prices = mockStatic(Price.class); var sessions = mockStatic(Session.class)) {
+            prices.when(() -> Price.retrieve("price_monthly")).thenReturn(price);
+            java.util.Set<String> keys = new java.util.HashSet<>();
+            sessions.when(() -> Session.create(any(com.stripe.param.checkout.SessionCreateParams.class), any(com.stripe.net.RequestOptions.class)))
+                    .thenAnswer(call -> { keys.add(((com.stripe.net.RequestOptions)call.getArgument(1)).getIdempotencyKey()); return session; });
+            assertEquals(session.getUrl(), service.createCheckoutSession("plus", "monthly", "uid", "test@example.com"));
+            assertEquals(session.getUrl(), service.createCheckoutSession("plus", "monthly", "uid", "test@example.com"));
+            assertEquals(java.util.Set.of("photocalia-subscription-" + slot.token), keys);
+            slot.sessionId = session.getId(); session.setStatus("complete"); session.setPaymentStatus("unpaid");
+            sessions.when(() -> Session.retrieve(session.getId())).thenReturn(session);
+            assertThrows(IllegalArgumentException.class, () -> service.createCheckoutSession("plus", "monthly", "uid", "test@example.com"));
+            verify(service.checkoutStore, never()).replaceExpired(anyString(), anyString(), anyString(), anyString(), any());
+        }
+    }
+
     @Test void anotherAccountsCheckoutCannotBeFulfilled() throws Exception {
         StripeService service = new StripeService(); service.quotaService = mock(QuotaService.class);
         try (var sessions = mockStatic(Session.class)) {

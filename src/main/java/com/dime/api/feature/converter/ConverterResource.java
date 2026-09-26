@@ -127,7 +127,9 @@ public class ConverterResource {
                 log.info("Replayed completed quota reservation for user {}", userId);
                 return Response.ok(new ConverterResponse(true, existing.icsContent)).build();
             }
-            throw new IdempotencyException("A conversion with this Idempotency-Key is already in progress.",
+            throw new IdempotencyException(existing.getStateType() == QuotaReservationState.EXPIRED
+                    ? "This conversion expired and its quota was restored. Retry with a new Idempotency-Key."
+                    : "A conversion with this Idempotency-Key is already in progress.",
                     Map.of("state", existing.state));
         }
 
@@ -226,7 +228,7 @@ public class ConverterResource {
             schema = @Schema(implementation = QuotaService.PlanInfo.class, type = SchemaType.ARRAY)))
     public List<QuotaService.PlanInfo> getPlans() {
         log.info("GET /converter/plans called");
-        return quotaService.getQuotaLimits();
+        return quotaService.getPublicQuotaLimits();
     }
 
     @GET

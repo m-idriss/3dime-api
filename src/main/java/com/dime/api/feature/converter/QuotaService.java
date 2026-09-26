@@ -109,10 +109,24 @@ public class QuotaService {
 
     public List<PlanInfo> getQuotaLimits() {
         return quotaLimits.entrySet().stream()
-                .filter(e -> e.getKey() == PlanType.FREE || e.getKey() == PlanType.PLUS)
                 .map(e -> new PlanInfo(e.getKey(), e.getValue()))
                 .sorted(Comparator.comparing(PlanInfo::limit))
                 .toList();
+    }
+
+    public List<PlanInfo> getPublicQuotaLimits() {
+        return getQuotaLimits().stream().filter(p -> p.plan() == PlanType.FREE || p.plan() == PlanType.PLUS).toList();
+    }
+
+    /** Recover timed-out work when an account returns, without a background scheduler or composite index. */
+    private void reconcileUserReservations(String userId) throws Exception {
+        DocumentReference user = firestore().collection(COLLECTION_NAME).document(userId);
+        for (DocumentSnapshot snapshot : user.collection(RESERVATIONS_COLLECTION)
+                .whereEqualTo("state", QuotaReservationState.RESERVED.name()).get().get(10, TimeUnit.SECONDS).getDocuments()) {
+            QuotaReservation reservation = snapshot.toObject(QuotaReservation.class);
+            if (reservation != null && isExpiredReservation(reservation))
+                reconcileExpiredReservation(user, snapshot.getReference());
+        }
     }
 
     Firestore firestore() {
@@ -174,6 +188,7 @@ public class QuotaService {
         String normalizedKey = idempotencyKey.trim();
 
         try {
+            reconcileUserReservations(userId);
             DocumentReference docRef = firestore().collection(COLLECTION_NAME).document(userId);
             DocumentReference reservationRef = docRef.collection(RESERVATIONS_COLLECTION).document(normalizedKey);
             DocumentReference deviceRef = identity != null
@@ -210,7 +225,7 @@ public class QuotaService {
                             return new QuotaReservationResult(existing, true, remaining, existing.quotaLimit,
                                     existing.getPlanType());
                         }
-                        if (state == QuotaReservationState.RESERVED) {
+                        if (state == QuotaReservationState.RESERVED || state == QuotaReservationState.EXPIRED) {
                             long remaining = Math.max(0, existing.quotaLimit - existing.quotaUsedAfterReservation);
                             return new QuotaReservationResult(existing, true, remaining, existing.quotaLimit,
                                     existing.getPlanType());
@@ -639,6 +654,7 @@ public class QuotaService {
 
     public UserQuota getQuotaStatus(@NonNull String userId, QuotaIdentityService.QuotaIdentity identity) {
         try {
+            reconcileUserReservations(userId);
             DocumentSnapshot document = firestore().collection(COLLECTION_NAME).document(userId).get().get(5, TimeUnit.SECONDS);
             if (document.exists()) {
                 UserQuota userQuota = document.toObject(UserQuota.class);

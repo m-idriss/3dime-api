@@ -147,7 +147,7 @@ class QuotaReservationConcurrencyTest {
     @Test
     void plusLimitAndLegacyLimitsRemainDistinct() {
         assertEquals(List.of(new QuotaService.PlanInfo(PlanType.FREE, 3),
-                new QuotaService.PlanInfo(PlanType.PLUS, 15)), quotaService.getQuotaLimits());
+                new QuotaService.PlanInfo(PlanType.PLUS, 15)), quotaService.getPublicQuotaLimits());
         firestore.userQuota = new UserQuota(PlanType.PLUS, 14, 15, Timestamp.now(), Timestamp.now(), Timestamp.now());
         quotaService.reserveQuota("plus", null, "last", 1);
         assertThrows(QuotaException.class, () -> quotaService.reserveQuota("plus", null, "over", 1));
@@ -258,6 +258,29 @@ class QuotaReservationConcurrencyTest {
                 firestore.reservations.get("refund-key").getStateType());
     }
 
+    @Test
+    void expiredPaidReservationIsRestoredOnceAndCannotBeCompletedLate() {
+        firestore.userQuota = new UserQuota(PlanType.FREE, 3, 3, Timestamp.now(), Timestamp.now(), Timestamp.now());
+        firestore.userQuota.paidCredits = 1;
+        quotaService.reserveQuota("user", null, "expired", 1);
+        firestore.reservations.get("expired").expiresAt = Timestamp.ofTimeSecondsAndNanos(1, 0);
+        assertEquals(1, quotaService.getQuotaStatus("user").paidCredits);
+        var replay = quotaService.reserveQuota("user", null, "expired", 1);
+        assertTrue(replay.replay());
+        assertEquals(QuotaReservationState.EXPIRED, replay.reservation().getStateType());
+        quotaService.completeReservation("user", "expired", "test", "BEGIN:VCALENDAR", 1);
+        assertEquals(1, firestore.userQuota.paidCredits);
+        quotaService.reserveQuota("user", null, "new-attempt", 1);
+        assertEquals(0, firestore.userQuota.paidCredits);
+    }
+
+    @Test
+    void adminPlansKeepLegacyLimits() {
+        assertEquals(5, quotaService.getQuotaLimits().size());
+        assertTrue(quotaService.getQuotaLimits().contains(new QuotaService.PlanInfo(PlanType.PRO, 100)));
+        assertTrue(quotaService.getQuotaLimits().contains(new QuotaService.PlanInfo(PlanType.BUSINESS, 120)));
+    }
+
     private static class InMemoryFirestoreHarness {
 
         final Firestore firestore = mock(Firestore.class);
@@ -292,6 +315,24 @@ class QuotaReservationConcurrencyTest {
             mockSubjectCollection(networks, "quotaNetworks");
             mockSubjectCollection(globals, "quotaGlobal");
             when(userDoc.collection("quotaReservations")).thenReturn(reservationCollection);
+            var query = mock(com.google.cloud.firestore.Query.class);
+            when(reservationCollection.whereEqualTo("state", "RESERVED")).thenReturn(query);
+            when(query.get()).thenAnswer(ignored -> {
+                synchronized (this) {
+                    List<com.google.cloud.firestore.QueryDocumentSnapshot> docs = new ArrayList<>();
+                    reservations.forEach((key, value) -> {
+                        if (value.getStateType() == QuotaReservationState.RESERVED) {
+                            var doc = mock(com.google.cloud.firestore.QueryDocumentSnapshot.class);
+                            when(doc.toObject(QuotaReservation.class)).thenReturn(value);
+                            when(doc.getReference()).thenReturn(reservationRefs.get(key));
+                            docs.add(doc);
+                        }
+                    });
+                    var result = mock(com.google.cloud.firestore.QuerySnapshot.class);
+                    when(result.getDocuments()).thenReturn(docs);
+                    return ApiFutures.immediateFuture(result);
+                }
+            });
             when(reservationCollection.document(any())).thenAnswer(invocation -> {
                 String key = invocation.getArgument(0);
                 synchronized (this) {
