@@ -45,6 +45,9 @@ public class QuotaService {
     @ConfigProperty(name = "quota.limit.free", defaultValue = "3")
     long quotaLimitFree;
 
+    @ConfigProperty(name = "quota.limit.plus", defaultValue = "15")
+    long quotaLimitPlus;
+
     @ConfigProperty(name = "quota.limit.pro", defaultValue = "100")
     long quotaLimitPro;
 
@@ -75,6 +78,7 @@ public class QuotaService {
     void init() {
         this.quotaLimits = Map.of(
                 PlanType.FREE, quotaLimitFree,
+                PlanType.PLUS, quotaLimitPlus,
                 PlanType.PRO, quotaLimitPro,
                 PlanType.BUSINESS, quotaLimitBusiness,
                 PlanType.UNLIMITED, quotaLimitUnlimited);
@@ -105,6 +109,7 @@ public class QuotaService {
 
     public List<PlanInfo> getQuotaLimits() {
         return quotaLimits.entrySet().stream()
+                .filter(e -> e.getKey() == PlanType.FREE || e.getKey() == PlanType.PLUS)
                 .map(e -> new PlanInfo(e.getKey(), e.getValue()))
                 .sorted(Comparator.comparing(PlanInfo::limit))
                 .toList();
@@ -205,7 +210,7 @@ public class QuotaService {
                             return new QuotaReservationResult(existing, true, remaining, existing.quotaLimit,
                                     existing.getPlanType());
                         }
-                        if (state == QuotaReservationState.RESERVED && !isExpiredReservation(existing)) {
+                        if (state == QuotaReservationState.RESERVED) {
                             long remaining = Math.max(0, existing.quotaLimit - existing.quotaUsedAfterReservation);
                             return new QuotaReservationResult(existing, true, remaining, existing.quotaLimit,
                                     existing.getPlanType());
@@ -223,7 +228,8 @@ public class QuotaService {
 
                 PlanType plan = userQuota.getPlanType();
                 long limit = quotaLimits.getOrDefault(plan, quotaLimitFree);
-                if (userQuota.quotaUsed >= limit) {
+                boolean usePaidCredit = userQuota.quotaUsed >= limit;
+                if (usePaidCredit && userQuota.paidCredits <= 0) {
                     throw new QuotaException("You've reached your monthly conversion limit. Limit: " + limit,
                             Map.of("limit", limit, "remaining", 0, "plan", plan));
                 }
@@ -231,11 +237,12 @@ public class QuotaService {
                 QuotaSubject deviceSubject = null;
                 QuotaSubject networkSubject = null;
                 QuotaSubject globalSubject = null;
-                if (plan == PlanType.FREE && identity != null) {
+                if (plan == PlanType.FREE && identity != null && !usePaidCredit) {
                     DocumentSnapshot deviceSnapshot = transaction.get(deviceRef).get();
                     deviceSubject = monthlySubject(deviceSnapshot, "DEVICE", freeDeviceLimit, now);
                     if (deviceSubject.usageCount >= freeDeviceLimit) {
-                        throw protectionQuotaException(limit, plan, "device");
+                        if (userQuota.paidCredits <= 0) throw protectionQuotaException(limit, plan, "device");
+                        usePaidCredit = true;
                     }
 
                     if (networkRef != null) {
@@ -245,7 +252,8 @@ public class QuotaService {
                         accounts.add(identity.accountHash());
                         if (networkSubject.usageCount >= freeNetworkDailyLimit
                                 && accounts.size() >= freeNetworkAccountThreshold) {
-                            throw protectionQuotaException(limit, plan, "network");
+                            if (userQuota.paidCredits <= 0) throw protectionQuotaException(limit, plan, "network");
+                        usePaidCredit = true;
                         }
                         networkSubject.accountHashes = new ArrayList<>(accounts);
                     }
@@ -253,14 +261,21 @@ public class QuotaService {
                     DocumentSnapshot globalSnapshot = transaction.get(globalRef).get();
                     globalSubject = dailySubject(globalSnapshot, "GLOBAL", freeGlobalDailyLimit, now);
                     if (globalSubject.usageCount >= freeGlobalDailyLimit) {
-                        throw protectionQuotaException(limit, plan, "service_capacity");
+                        if (userQuota.paidCredits <= 0) throw protectionQuotaException(limit, plan, "service_capacity");
+                        usePaidCredit = true;
                     }
                 }
 
-                long usedAfterReservation = userQuota.quotaUsed + 1;
+                if (usePaidCredit) {
+                    deviceSubject = null;
+                    networkSubject = null;
+                    globalSubject = null;
+                }
+                long usedAfterReservation = userQuota.quotaUsed + (usePaidCredit ? 0 : 1);
                 Map<String, Object> quotaUpdates = new HashMap<>();
                 quotaUpdates.put("plan", plan.name());
                 quotaUpdates.put("quotaUsed", usedAfterReservation);
+                quotaUpdates.put("paidCredits", userQuota.paidCredits - (usePaidCredit ? 1 : 0));
                 quotaUpdates.put("quotaLimit", limit);
                 quotaUpdates.put("periodStart", userQuota.periodStart);
                 quotaUpdates.put("updatedAt", now);
@@ -282,7 +297,8 @@ public class QuotaService {
                 reservation.reservedAt = now;
                 reservation.expiresAt = expiresAt;
                 reservation.updatedAt = now;
-                reservation.freeProtectionApplied = plan == PlanType.FREE && identity != null;
+                reservation.paidCreditUsed = usePaidCredit;
+                reservation.freeProtectionApplied = plan == PlanType.FREE && identity != null && !usePaidCredit;
                 if (reservation.freeProtectionApplied) {
                     reservation.deviceHash = identity.deviceHash();
                     reservation.networkHash = identity.networkHash();
@@ -412,9 +428,7 @@ public class QuotaService {
                 if (refund && currentState == QuotaReservationState.RESERVED && userSnapshot.exists()) {
                     UserQuota userQuota = userSnapshot.toObject(UserQuota.class);
                     if (userQuota != null) {
-                        transaction.update(docRef, Map.of(
-                                "quotaUsed", Math.max(0, userQuota.quotaUsed - 1),
-                                "updatedAt", now));
+                        refundUserReservation(transaction, docRef, userQuota, reservation, now);
                     }
                 }
                 if (!protectionSnapshots.isEmpty()) {
@@ -464,9 +478,7 @@ public class QuotaService {
             if (userSnapshot.exists()) {
                 UserQuota userQuota = userSnapshot.toObject(UserQuota.class);
                 if (userQuota != null) {
-                    transaction.update(docRef, Map.of(
-                            "quotaUsed", Math.max(0, userQuota.quotaUsed - 1),
-                            "updatedAt", now));
+                    refundUserReservation(transaction, docRef, userQuota, reservation, now);
                 }
             }
             if (!protectionSnapshots.isEmpty()) {
@@ -480,6 +492,68 @@ public class QuotaService {
                     "updatedAt", now));
             return null;
         }).get(10, TimeUnit.SECONDS);
+    }
+
+    private void refundUserReservation(Transaction transaction, DocumentReference ref,
+            UserQuota quota, QuotaReservation reservation, Timestamp now) {
+        if (reservation.paidCreditUsed) {
+            transaction.update(ref, Map.of("paidCredits", quota.paidCredits + 1, "updatedAt", now));
+        } else if (java.util.Objects.equals(quota.periodStart, reservation.periodStart)) {
+            transaction.update(ref, Map.of("quotaUsed", Math.max(0, quota.quotaUsed - 1), "updatedAt", now));
+        }
+    }
+
+    /** A Stripe Checkout Session can grant one credit only once, including concurrent deliveries. */
+    public void grantPaidCredit(String userId, String checkoutSessionId) {
+        try {
+            DocumentReference userRef = firestore().collection(COLLECTION_NAME).document(userId);
+            DocumentReference paymentRef = userRef.collection("creditPayments").document(checkoutSessionId);
+            firestore().runTransaction(tx -> {
+                DocumentSnapshot payment = tx.get(paymentRef).get();
+                DocumentSnapshot snapshot = tx.get(userRef).get();
+                if (payment.exists()) return null;
+                Timestamp now = Timestamp.now();
+                UserQuota quota = snapshot.exists() ? snapshot.toObject(UserQuota.class) : null;
+                if (snapshot.exists() && quota == null) throw new IllegalStateException("Invalid quota record");
+                if (quota == null) {
+                    quota = new UserQuota(DEFAULT_PLAN, 0, quotaLimits.get(DEFAULT_PLAN), now, now, now);
+                    quota.paidCredits = 1;
+                    tx.set(userRef, quota);
+                } else {
+                    tx.update(userRef, Map.of("paidCredits", quota.paidCredits + 1, "updatedAt", now));
+                }
+                tx.set(paymentRef, Map.of("credits", 1, "createdAt", now));
+                return null;
+            }).get(10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new DatastoreUnavailableException("Unable to grant paid conversion credit.", e);
+        }
+    }
+
+    /** Persist billing identity without resetting monthly usage or purchased credits. */
+    public void syncSubscription(String userId, PlanType plan, String subscriptionId, String customerId) {
+        try {
+            DocumentReference ref = firestore().collection(COLLECTION_NAME).document(userId);
+            firestore().runTransaction(tx -> {
+                DocumentSnapshot snapshot = tx.get(ref).get();
+                UserQuota quota = snapshot.exists() ? snapshot.toObject(UserQuota.class) : null;
+                if (snapshot.exists() && quota == null) throw new IllegalStateException("Invalid quota record");
+                // An event for an old cancelled subscription must not revoke a newer subscription.
+                if (plan == PlanType.FREE && quota != null && quota.stripeSubscriptionId != null
+                        && !subscriptionId.equals(quota.stripeSubscriptionId)) return null;
+                Timestamp now = Timestamp.now();
+                if (quota == null) quota = new UserQuota(plan, 0, quotaLimits.get(plan), now, now, now);
+                quota.setPlanType(plan);
+                quota.quotaLimit = quotaLimits.get(plan);
+                quota.stripeCustomerId = customerId;
+                quota.stripeSubscriptionId = plan == PlanType.FREE ? null : subscriptionId;
+                quota.updatedAt = now;
+                tx.set(ref, quota);
+                return null;
+            }).get(10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new DatastoreUnavailableException("Unable to update subscription entitlement.", e);
+        }
     }
 
     private void syncQuotaToNotion(String userId, DocumentReference docRef) {

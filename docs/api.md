@@ -173,3 +173,7 @@ header; otherwise the API generates one. User-facing behavior must use `errorCod
 | `502` | `EXTERNAL_SERVICE_ERROR` | Upstream API failure (Gemini, Notion, GitHub) |
 | `503` | `DATASTORE_UNAVAILABLE` | Quota reservation cannot be guaranteed |
 | `500` | `INTERNAL_ERROR` | Unexpected internal failure |
+
+## Pricing and conversion credits
+
+See [pricing.md](pricing.md) for the approved offers and release checklist. New subscription checkout accepts `plus`; existing `PRO` and `BUSINESS` remain valid legacy entitlements. `POST /subscriptions/credits` starts a EUR 0.99 one-time purchase, and `GET /subscriptions/checkout-status?sessionId=...` verifies and fulfills the signed-in account’s payment. Quota responses expose `paidCredits` separately from monthly remaining usage.
