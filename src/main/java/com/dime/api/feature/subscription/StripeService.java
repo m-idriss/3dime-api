@@ -79,6 +79,9 @@ public class StripeService {
         }
     }
 
+    @jakarta.inject.Inject
+    SubscriptionCheckoutStore checkoutStore;
+
     public String createCheckoutSession(String planId, String billingCycle, String userId, String email)
             throws StripeException {
 
@@ -86,30 +89,55 @@ public class StripeService {
         String priceId = resolvePriceId(planId, billingCycle);
         validatePlusPrice(com.stripe.model.Price.retrieve(priceId), billingCycle);
 
+        for (int attempt = 0; attempt < 2; attempt++) {
+            var slot = checkoutStore.acquire(userId, billingCycle, priceId, email);
+            Session session;
+            if (slot.sessionId != null) {
+                session = Session.retrieve(slot.sessionId);
+            } else {
+                // Stripe may prune idempotency keys after 24h. Never recreate an uncertain old payment.
+                if (java.time.Instant.now().getEpochSecond() - slot.createdAt >= 23 * 3600)
+                    throw new IllegalStateException("Checkout recovery requires support.");
+                session = createReservedSubscriptionSession(slot, userId);
+                checkoutStore.saveSession(userId, slot.token, session.getId());
+            }
+            if ("complete".equals(session.getStatus())) {
+                if (session.getSubscription() != null) {
+                    Subscription previous = Subscription.retrieve(session.getSubscription());
+                    if ("canceled".equals(previous.getStatus()) || "incomplete_expired".equals(previous.getStatus())) {
+                        syncSubscription(previous);
+                        checkoutStore.replaceExpired(userId, slot.token, billingCycle, priceId, email);
+                        continue;
+                    }
+                }
+                fulfillCheckout(session);
+                throw new IllegalArgumentException("A subscription payment already exists. Refresh your account.");
+            }
+            if ("open".equals(session.getStatus()) && billingCycle.equals(slot.billingCycle)) return session.getUrl();
+            if ("open".equals(session.getStatus())) session = session.expire();
+            if (!"expired".equals(session.getStatus())) throw new IllegalStateException("Checkout is not replaceable.");
+            // Expiring is authoritative: a racing payment prevents expiration and cannot open another session.
+            checkoutStore.replaceExpired(userId, slot.token, billingCycle, priceId, email);
+        }
+        throw new IllegalStateException("Checkout changed. Please retry.");
+    }
+
+    private Session createReservedSubscriptionSession(SubscriptionCheckoutStore.Slot slot, String userId)
+            throws StripeException {
         SessionCreateParams params = SessionCreateParams.builder()
                 .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
-                .setCustomerEmail(email)
+                .setCustomerEmail(slot.email)
                 .setSuccessUrl(successUrl + "?session_id={CHECKOUT_SESSION_ID}")
                 .setCancelUrl(cancelUrl)
-                .addLineItem(
-                        SessionCreateParams.LineItem.builder()
-                                .setPrice(priceId)
-                                .setQuantity(1L)
-                                .build())
+                .addLineItem(SessionCreateParams.LineItem.builder().setPrice(slot.priceId).setQuantity(1L).build())
                 .putMetadata("userId", userId)
-                .putMetadata("planId", planId)
-                .putMetadata("billingCycle", billingCycle)
-                .setSubscriptionData(
-                        SessionCreateParams.SubscriptionData.builder()
-                                .putMetadata("userId", userId)
-                                .putMetadata("planId", planId)
-                                .build())
+                .putMetadata("planId", "plus")
+                .putMetadata("billingCycle", slot.billingCycle)
+                .setSubscriptionData(SessionCreateParams.SubscriptionData.builder()
+                        .putMetadata("userId", userId).putMetadata("planId", "plus").build())
                 .build();
-
-        Session session = Session.create(params);
-        log.info("Created Stripe Checkout Session {} for user {} (plan={}, cycle={})",
-                session.getId(), userId, planId, billingCycle);
-        return session.getUrl();
+        return Session.create(params, com.stripe.net.RequestOptions.builder()
+                .setIdempotencyKey("photocalia-subscription-" + slot.token).build());
     }
 
     static void validatePlusPrice(com.stripe.model.Price price, String billingCycle) {
