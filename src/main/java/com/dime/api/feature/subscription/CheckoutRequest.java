@@ -8,8 +8,8 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(description = "Subscription checkout request", requiredProperties = { "planId", "billingCycle" })
 public record CheckoutRequest(
         @NotBlank(message = "planId is required")
-        @Pattern(regexp = "pro|business", message = "planId must be 'pro' or 'business'")
-        @Schema(enumeration = { "pro", "business" }) String planId,
+        @Pattern(regexp = "plus", message = "planId must be 'plus'")
+        @Schema(enumeration = { "plus" }) String planId,
 
         @NotBlank(message = "billingCycle is required")
         @Pattern(regexp = "monthly|yearly", message = "billingCycle must be 'monthly' or 'yearly'")

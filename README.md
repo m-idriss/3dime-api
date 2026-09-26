@@ -86,3 +86,7 @@ docker run -p 8080:8080 \
 **Private & Proprietary** • Built by **[Idriss](https://github.com/m-idriss)**
 
 </div>
+
+## PhotoCalia billing
+
+See [pricing and payment fulfillment](docs/pricing.md) for Plus, one-time conversion credits, legacy subscriptions and the Stripe activation checklist.

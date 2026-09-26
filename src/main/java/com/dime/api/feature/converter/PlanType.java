@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum PlanType {
     FREE,
+    PLUS,
     PRO,
     BUSINESS,
     UNLIMITED;

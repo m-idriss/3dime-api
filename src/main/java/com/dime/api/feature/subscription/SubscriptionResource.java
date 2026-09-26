@@ -52,11 +52,17 @@ public class SubscriptionResource {
         String verifiedUid = (String) requestContext.getProperty(FirebaseAuthFilter.FIREBASE_UID);
         String verifiedEmail = (String) requestContext.getProperty(FirebaseAuthFilter.FIREBASE_EMAIL);
 
-        String userId = verifiedUid != null ? verifiedUid : request.userId();
-        String email = verifiedEmail != null ? verifiedEmail : request.email();
+        String userId = verifiedUid;
+        String email = verifiedEmail;
 
         if (userId == null || userId.isBlank()) {
             throw new AuthenticationException("Authentication required to subscribe");
+        }
+
+        UserQuota current = quotaService.getQuotaStatus(userId);
+        if (current != null && (current.stripeSubscriptionId != null
+                || current.getPlanType() != com.dime.api.feature.converter.PlanType.FREE)) {
+            throw new ValidationException("An existing subscription must be managed before starting another one.");
         }
 
         log.info("Creating checkout session for user {} (plan={}, cycle={})",
@@ -74,6 +80,38 @@ public class SubscriptionResource {
         }
     }
 
+    @POST
+    @Path("/credits")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Operation(summary = "Buy one conversion credit", description = "Creates a one-time EUR 0.99 Checkout Session for the authenticated account")
+    @APIResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = CheckoutResponse.class)))
+    public Response buyCredit(@Context ContainerRequestContext context) {
+        String uid = (String) context.getProperty(FirebaseAuthFilter.FIREBASE_UID);
+        if (uid == null) throw new AuthenticationException("Authentication required");
+        try {
+            return Response.ok(new CheckoutResponse(stripeService.createCreditSession(uid,
+                    (String) context.getProperty(FirebaseAuthFilter.FIREBASE_EMAIL)))).build();
+        } catch (StripeException e) {
+            throw new ExternalServiceException("Stripe", "Unable to create payment session", e);
+        }
+    }
+
+    @GET
+    @Path("/checkout-status")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Operation(summary = "Confirm a checkout", description = "Verifies Stripe payment and idempotently fulfills the authenticated account's checkout")
+    @APIResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = CheckoutStatusResponse.class)))
+    public CheckoutStatusResponse checkoutStatus(@QueryParam("sessionId") @NotBlank String sessionId,
+            @Context ContainerRequestContext context) {
+        String uid = (String) context.getProperty(FirebaseAuthFilter.FIREBASE_UID);
+        if (uid == null) throw new AuthenticationException("Authentication required");
+        try {
+            return stripeService.confirmCheckout(sessionId, uid);
+        } catch (StripeException e) {
+            throw new ExternalServiceException("Stripe", "Unable to confirm payment", e);
+        }
+    }
+
     @GET
     @Path("/status")
     @Produces(MediaType.APPLICATION_JSON)
@@ -84,7 +122,8 @@ public class SubscriptionResource {
             @Context ContainerRequestContext requestContext) {
 
         String verifiedUid = (String) requestContext.getProperty(FirebaseAuthFilter.FIREBASE_UID);
-        String effectiveUserId = verifiedUid != null ? verifiedUid : userId;
+        if (verifiedUid == null) throw new AuthenticationException("Authentication required");
+        String effectiveUserId = verifiedUid;
 
         UserQuota quota = quotaService.getQuotaStatus(effectiveUserId);
         if (quota == null) {
@@ -124,7 +163,8 @@ public class SubscriptionResource {
         try {
             com.stripe.model.Subscription subscription =
                     com.stripe.model.Subscription.retrieve(quota.stripeSubscriptionId);
-            subscription.cancel();
+            subscription.update(com.stripe.param.SubscriptionUpdateParams.builder()
+                    .setCancelAtPeriodEnd(true).build());
             log.info("Cancelled subscription {} for user {}", quota.stripeSubscriptionId, verifiedUid);
             return Response.ok(new SubscriptionCancellationResponse(true, "Subscription cancelled")).build();
         } catch (StripeException e) {

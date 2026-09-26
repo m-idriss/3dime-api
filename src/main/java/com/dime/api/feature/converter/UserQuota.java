@@ -15,6 +15,7 @@ public class UserQuota {
     // Firestore-friendly field - stores the plan as string
     public String plan;
     public long quotaUsed;
+    public long paidCredits;
     public long quotaLimit;
     public Timestamp periodStart;
     public Timestamp createdAt;
