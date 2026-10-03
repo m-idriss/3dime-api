@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
 
 @Slf4j
 @ApplicationScoped
-public class GeminiService {
+public class GeminiService implements CalendarAiProvider {
 
     private static final Pattern BASE64_PATTERN = Pattern.compile("^data:(.+?);base64,(.+)$");
 
@@ -52,7 +52,8 @@ public class GeminiService {
     Optional<String> apiKeyJson;
 
     @Timeout(value = 60, unit = ChronoUnit.SECONDS)
-    public String generateIcs(ConverterRequest request) throws IOException {
+    @Override
+    public String generateCalendar(ConverterRequest request) throws IOException {
         String token;
         try {
             token = getAccessToken();
@@ -138,8 +139,13 @@ public class GeminiService {
             }
         }
 
-        log.error("Gemini response did not contain expected content: {}", response.toString());
+        log.error("Gemini response did not contain the expected candidate content fields");
         throw new ProcessingException("Gemini API returned unexpected response format");
+    }
+
+    @Override
+    public String name() {
+        return "gemini";
     }
 
     public void ping() throws IOException {

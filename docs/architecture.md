@@ -39,10 +39,10 @@ feature/<name>/
 | Layer | Technology |
 |-------|-----------|
 | Language | Java 21 |
-| Framework | Quarkus 3.31.3 |
+| Framework | Quarkus 3.39.2 |
 | Build | Maven 3.8+ |
 | Database | Google Cloud Firestore |
-| AI | Google Gemini API |
+| AI | Google Gemini API or Anthropic Claude behind a shared provider boundary |
 | External APIs | GitHub REST API, Notion API |
 | Observability | OpenTelemetry -> Google Cloud Trace; JSON structured logging |
 | Resilience | SmallRye Fault Tolerance (`@Retry`, `@Timeout`) |
@@ -50,6 +50,10 @@ feature/<name>/
 | Auth | Quarkus Elytron (form-based) |
 | Deployment | Google Cloud Run + Buildpacks |
 | Code Generation | Lombok |
+
+Provider responses are untrusted input. The converter parses them into a typed event model,
+validates titles, ranges, timezones and recurrence, then regenerates RFC 5545 content on the
+server. Provider-produced calendar text is never returned directly to clients.
 
 ## Caching
 
