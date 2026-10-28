@@ -361,6 +361,25 @@
       <build>
         <plugins>
           <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.5.1</version>
+            <executions>
+              <execution>
+                <id>verify-cve-applicability</id>
+                <phase>pre-integration-test</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>python3</executable>
+                  <arguments>
+                    <argument>${project.basedir}/scripts/verify-security-applicability.py</argument>
+                    <argument>${project.build.directory}</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
             <groupId>org.owasp</groupId>
             <artifactId>dependency-check-maven</artifactId>
             <version>13.0.0</version>
@@ -378,6 +397,9 @@
                 <format>SARIF</format>
               </formats>
               <failBuildOnCVSS>9.0</failBuildOnCVSS>
+              <suppressionFiles>
+                <suppressionFile>${project.basedir}/dependency-check-suppressions.xml</suppressionFile>
+              </suppressionFiles>
             </configuration>
           </plugin>
         </plugins>

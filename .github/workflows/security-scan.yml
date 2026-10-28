@@ -1,6 +1,8 @@
 name: Security Scan
 
 on:
+  push:
+    branches: [release/backend-security-qualified]
   schedule:
     - cron: "24 4 * * 1"
   workflow_dispatch:
@@ -33,6 +35,11 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
+
+      - name: Test applicability boundary and trace dependency origins
+        run: |
+          python3 -m unittest discover -s scripts -p 'test_security_applicability.py'
+          mvn -B -ntp dependency:tree -Dincludes=org.eclipse.jetty.npn:npn-api,io.vertx:vertx-db2-client,io.vertx:vertx-web,io.vertx:vertx-grpc-server
 
       - name: Require securely configured NVD credential
         env:
@@ -141,6 +148,7 @@ jobs:
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          exit-code: "1"
 
       - name: Upload container SARIF
         if: always()
