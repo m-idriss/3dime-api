@@ -48,7 +48,23 @@ jobs:
               raise SystemExit('Invalid SARIF report.')
           results = [item for run in report['runs'] for item in run.get('results', [])]
           cves = sorted({item.get('ruleId', '') for item in results if re.fullmatch(r'CVE-[0-9]{4}-[0-9]{4,12}', item.get('ruleId', ''))})
-          summary = f'## Container SARIF inspection\n\nScan run: {os.environ["SCAN_RUN_ID"]}. Artifact: {artifact_id}.\n\nResult entries: {len(results)}. Unique CVE IDs: {len(cves)}.\n\n' + '\n'.join('- ' + cve for cve in cves[:100]) + '\n\nCounts include the report inventory; a successful scanner job is not proof of zero findings. No messages, snippets or secret findings are printed.\n'
+          rules = {rule.get('id'): rule for run in report['runs'] for rule in run.get('tool', {}).get('driver', {}).get('rules', [])}
+          findings = []
+          for item in results:
+              cve = item.get('ruleId', '')
+              if not re.fullmatch(r'CVE-[0-9]{4}-[0-9]{4,12}', cve):
+                  continue
+              properties = rules.get(cve, {}).get('properties', {})
+              score = properties.get('security-severity', '')
+              score = score if re.fullmatch(r'(?:[0-9](?:\.[0-9])?|10(?:\.0)?)', str(score)) else 'unknown'
+              text = item.get('message', {}).get('text', '')
+              finding = {'cve': cve, 'cvss': score}
+              for label, key in [('Package', 'package'), ('Installed Version', 'installed'), ('Fixed Version', 'fixed')]:
+                  match = re.search(r'(?mi)^' + label + r':\s*([A-Za-z0-9@._/+, :~-]{1,180})$', text)
+                  if match:
+                      finding[key] = match.group(1).strip()
+              findings.append(finding)
+          summary = f'## Container SARIF inspection\n\nScan run: {os.environ["SCAN_RUN_ID"]}. Artifact: {artifact_id}.\n\nResult entries: {len(results)}. Unique CVE IDs: {len(cves)}.\n\n' + '\n'.join(json.dumps(f, sort_keys=True) for f in findings[:100]) + '\n\nOnly validated CVE identifiers, CVSS values and restricted package/version fields are printed. Successful scanning is not proof of zero findings. No raw messages, snippets or secret findings are printed.\n'
           print(summary)
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as output:
               output.write(summary)
