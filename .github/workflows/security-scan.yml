@@ -1,9 +1,6 @@
 name: Security Scan
 
 on:
-  push:
-    branches: [security/prepare-nvd-credential]
-    paths: [.github/workflows/security-scan.yml, docs/nvd-cache-qualification.md]
   schedule:
     - cron: "24 4 * * 1"
   workflow_dispatch:
@@ -123,7 +120,6 @@ jobs:
         continue-on-error: true
 
   container-scan:
-    if: github.event_name != 'push'
     name: Container image scan
     runs-on: ubuntu-latest
     timeout-minutes: 35

@@ -13,7 +13,7 @@ on:
       dependency_run_id:
         description: Dependency scan run ID in this repository
         required: true
-        default: '40673490915'
+        default: '40675177307'
         type: string
 permissions:
   actions: read
@@ -150,7 +150,7 @@ jobs:
       - name: Read restricted dependency vulnerability inventory
         env:
           GH_TOKEN: ${{ github.token }}
-          DEPENDENCY_SCAN_RUN_ID: ${{ inputs.dependency_run_id || '40673490915' }}
+          DEPENDENCY_SCAN_RUN_ID: ${{ inputs.dependency_run_id || '40675177307' }}
         shell: bash
         run: |
           set -euo pipefail
