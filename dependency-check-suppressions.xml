@@ -16,13 +16,13 @@
   <suppress until="2026-12-31Z">
     <notes><![CDATA[
       The Eclipse CNA identifies io.vertx:vertx-db2-client DRDA UDT deserialization.
-      The core, web, web-client and grpc-server artifacts do not implement the DB2 client.
-      Only these exact artifact versions are excluded, and the security profile
+      Non-DB2 Vert.x artifacts do not implement the affected DB2 client.
+      Only non-DB2 package URLs at this exact version are excluded; the security profile
       fails if DB2 client classes enter the packaged runtime.
       https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/102xxx/CVE-2026-102469.json
       https://github.com/eclipse-vertx/vertx-sql-client/security/advisories/GHSA-j4vf-w939-pgxf
     ]]></notes>
-    <packageUrl regex="true">^pkg:maven/io\.vertx/(vertx-core|vertx-web|vertx-web-client|vertx-grpc-server)@4\.5\.34(\?.*)?$</packageUrl>
+    <packageUrl regex="true">^pkg:maven/io\.vertx/(?![^@]*db2)[A-Za-z0-9._-]+@4\.5\.34(\?.*)?$</packageUrl>
     <cve>CVE-2026-102469</cve>
   </suppress>
 </suppressions>

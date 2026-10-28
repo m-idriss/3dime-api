@@ -12,11 +12,12 @@ instrumentation API.
 The Eclipse CNA record for
 [CVE-2026-102469](https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/102xxx/CVE-2026-102469.json)
 identifies `io.vertx:vertx-db2-client`: DRDA UDT data deserialization through
-`ObjectInputStream`. The initial matches were on `vertx-web` and `vertx-grpc-server` 4.5.34;
-a freshly updated database also matches `vertx-core` and `vertx-web-client`
-4.5.34 with the same DB2-only advisory. An artifact/product CPE association does not establish
-that the DB2 implementation is present. The exclusion matches only those four
-exact package URLs and that single CVE.
+`ObjectInputStream`. Updated databases associate the same DB2-only advisory with multiple
+non-DB2 Vert.x 4.5.34 modules (including core, web, web-client, web-common,
+grpc and grpc-server). An artifact/product CPE association does not establish
+that the DB2 implementation is present. The exclusion matches only non-DB2 `io.vertx` package URLs at exactly 4.5.34 and that
+single CVE. Package names containing `db2`, other groups and other versions
+never match the exclusion; an independent runtime guard must also pass.
 
 The Eclipse CNA records for
 [CVE-2017-7657](https://github.com/CVEProject/cvelistV5/blob/main/cves/2017/7xxx/CVE-2017-7657.json)
@@ -41,8 +42,8 @@ client or Jetty HTTP/server implementation class. Missing/invalid packages,
 nested archives and inspection bounds fail closed. It reads archive entry names
 without extracting application contents or logging customer/provider data.
 
-Four regression tests cover the NPN API distinction, each affected namespace,
-additional runtime jars, nested archives and missing/unrecognized packages.
+Five regression tests cover the NPN API distinction, each affected namespace,
+additional runtime jars, nested archives, missing/unrecognized packages and exclusion URL boundaries.
 The security workflow also prints the filtered Maven dependency origins before
 analysis. A green exclusion file alone is insufficient: the runtime boundary,
 fresh NVD scan, image vulnerability gate, API tests, unchanged contract and
@@ -58,8 +59,9 @@ The isolated warm qualification checks out and asserts the exact reviewed
 release SHA while restoring the existing trusted branch-scoped public NVD
 cache. It forces an API refresh before analysis; no stale-data fallback is
 allowed. The runtime package guard was successfully verified in the hosted
-release analysis. The temporary cold qualification push trigger is removed
-before integration; normal weekly/manual scans retain their bounds.
+release analysis. The isolated `release/backend-security-qualified` branch runs complete security
+qualification on pushes; it does not deploy. Normal weekly/manual scans retain
+the same bounds. No daily model schedule is introduced.
 
 After the authorized main merge, `verify-production-release.yml` waits for the
 Cloud Build deployment check on that exact commit, then performs bounded public

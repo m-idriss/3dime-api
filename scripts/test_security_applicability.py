@@ -1,10 +1,12 @@
 """Regression coverage for the release applicability boundary."""
 
 import importlib.util
+import re
 from pathlib import Path
 import tempfile
 import unittest
 import zipfile
+import xml.etree.ElementTree as ET
 
 spec = importlib.util.spec_from_file_location("applicability", Path(__file__).with_name("verify-security-applicability.py"))
 module = importlib.util.module_from_spec(spec)
@@ -12,6 +14,14 @@ spec.loader.exec_module(module)
 
 
 class ApplicabilityTests(unittest.TestCase):
+    def test_exclusion_never_matches_db2_other_versions_or_other_groups(self):
+        root = ET.parse(Path(__file__).resolve().parents[1] / "dependency-check-suppressions.xml").getroot()
+        pattern = next(node.text for node in root.iter() if node.tag.endswith("}packageUrl"))
+        for name in ["vertx-core", "vertx-web", "vertx-web-client", "vertx-web-common", "vertx-grpc", "vertx-grpc-server"]:
+            self.assertRegex(f"pkg:maven/io.vertx/{name}@4.5.34?type=jar", pattern)
+        for url in ["pkg:maven/io.vertx/vertx-db2-client@4.5.34", "pkg:maven/io.vertx/vertx-db2-client@4.5.34?type=jar", "pkg:maven/io.vertx/vertx-web@4.5.35", "pkg:maven/other/vertx-web@4.5.34", "pkg:maven/io.vertx/vertx-web@4.5.340"]:
+            self.assertIsNone(re.search(pattern, url))
+
     def package(self, root, extra=()):
         with zipfile.ZipFile(root / "3dime-api-runner.jar", "w") as archive:
             archive.writestr("io/vertx/core/Vertx.class", b"synthetic")
