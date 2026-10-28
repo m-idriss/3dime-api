@@ -25,3 +25,9 @@ Verify a cold cache miss, completed official-feed update, successful cache save 
 ## Current state
 
 Implementation and static YAML/shell/pin/credential-scope checks passed. The first workflow dispatch-by-push was rejected before execution because runner context is unavailable in job-level environment expressions; the cache path is now a fixed runner-temporary path. Local actionlint 1.7.7 verification of both touched workflows passed after correction. Live cold/warm database qualification is pending. Official feed probe: https://github.com/m-idriss/3dime-api/actions/runs/40672690166 . Credential setup and initial interruption: https://github.com/m-idriss/photocalia-agents/issues/13 . Tested dependency patch remains isolated in draft backend PR #271.
+
+## Cold execution verified
+
+[Run 40673490915](https://github.com/m-idriss/3dime-api/actions/runs/40673490915), source `2ea9ac10dd225f08ce74aa0d646473677a8825cb`, completed the official-feed update in 6 min 36 s. The checkpoint measured 263,843,840 database bytes; cache save confirmed key `nvd-public-db-13.0.0-Linux-X64-40673490915-1`. Analysis completed in 13 seconds and produced the dependency report artifact 12810036255. The workflow failed because dependencies crossed the retained CVSS threshold; no passing security release is claimed. A certificate-related analyzer exception also appears in the log and needs separate review. Cache/analysis completion and vulnerability clearance are distinct results.
+
+The exact v13.0.0 update-only goal and engine were inspected: update exceptions propagate and failOnError defaults to true. No fallback to stale cached data qualifies a failed update. The next execution must restore this cache, skip bulk bootstrap, complete the forced incremental API refresh and produce an analysis report.

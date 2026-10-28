@@ -10,6 +10,11 @@ on:
         required: true
         default: '40666627058'
         type: string
+      dependency_run_id:
+        description: Dependency scan run ID in this repository
+        required: true
+        default: '40673490915'
+        type: string
 permissions:
   actions: read
 jobs:
@@ -134,3 +139,61 @@ jobs:
               finally:
                   connection.close()
           PYFEED
+  dependency-report:
+    name: Inspect completed dependency analysis without raw messages
+    if: github.repository == 'm-idriss/3dime-api' && github.ref == 'refs/heads/security/prepare-nvd-credential'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      actions: read
+    steps:
+      - name: Read restricted dependency vulnerability inventory
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPENDENCY_SCAN_RUN_ID: ${{ inputs.dependency_run_id || '40673490915' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$DEPENDENCY_SCAN_RUN_ID" =~ ^[1-9][0-9]{0,15}$ ]]
+          gh api "repos/m-idriss/3dime-api/actions/runs/$DEPENDENCY_SCAN_RUN_ID/artifacts?per_page=100" > "$RUNNER_TEMP/dependency-artifacts.json"
+          python3 - <<'PYREPORT'
+          import io, json, os, re, subprocess, zipfile
+          inventory = json.load(open(os.environ['RUNNER_TEMP'] + '/dependency-artifacts.json'))
+          matches = [a for a in inventory['artifacts'] if a['name'] == 'dependency-check-report' and not a['expired']]
+          if len(matches) != 1:
+              raise SystemExit('Expected exactly one available dependency report.')
+          artifact = matches[0]
+          if not isinstance(artifact['id'], int) or artifact['id'] <= 0 or artifact['size_in_bytes'] > 5_000_000:
+              raise SystemExit('Invalid artifact metadata.')
+          downloaded = subprocess.run(['gh', 'api', f'repos/m-idriss/3dime-api/actions/artifacts/{artifact["id"]}/zip'], capture_output=True, timeout=45)
+          if downloaded.returncode or len(downloaded.stdout) > 5_000_000:
+              raise SystemExit('Dependency report download failed or exceeded limit; details suppressed.')
+          with zipfile.ZipFile(io.BytesIO(downloaded.stdout)) as archive:
+              files = [f for f in archive.infolist() if f.filename.endswith('dependency-check-report.json')]
+              if len(files) != 1 or files[0].file_size > 10_000_000:
+                  raise SystemExit('Invalid dependency JSON inventory.')
+              report = json.loads(archive.read(files[0]))
+          dependencies = report.get('dependencies')
+          if not isinstance(dependencies, list):
+              raise SystemExit('Dependency analysis report is incomplete.')
+          findings = []
+          for dependency in dependencies:
+              filename = dependency.get('fileName', '')
+              filename = filename if re.fullmatch(r'[A-Za-z0-9_.+-]{1,160}', filename) else 'not-disclosed'
+              for vulnerability in dependency.get('vulnerabilities', []):
+                  cve = vulnerability.get('name', '')
+                  if not re.fullmatch(r'CVE-[0-9]{4}-[0-9]{4,12}', cve):
+                      continue
+                  scores = []
+                  for field, key in [('cvssv4', 'baseScore'), ('cvssv3', 'baseScore'), ('cvssv2', 'score')]:
+                      value = vulnerability.get(field, {}).get(key)
+                      if isinstance(value, (int, float)) and not isinstance(value, bool) and 0 <= value <= 10:
+                          scores.append(value)
+                  findings.append({'cve': cve, 'file': filename, 'maximumReportedCvss': max(scores) if scores else None})
+          critical = [f for f in findings if f['maximumReportedCvss'] is not None and f['maximumReportedCvss'] >= 9]
+          critical.sort(key=lambda f: (-f['maximumReportedCvss'], f['cve'], f['file']))
+          summary = f'## Completed OWASP dependency report\n\nScan run: {os.environ["DEPENDENCY_SCAN_RUN_ID"]}. Artifact: {artifact["id"]}. Dependencies: {len(dependencies)}. CVE instances: {len(findings)}. Unique CVE IDs: {len({f["cve"] for f in findings})}. Instances with a reported CVSS >= 9: {len(critical)}.\n\n' + '\n'.join(json.dumps(f, sort_keys=True) for f in critical[:50]) + '\n\nOnly validated identifiers, dependency filenames and numeric scores are printed. Findings need triage; no raw messages, paths, source snippets or secret data are shown.\n'
+          print(summary)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as output:
+              output.write(summary)
+          PYREPORT
