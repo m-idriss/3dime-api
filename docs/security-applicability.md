@@ -9,15 +9,13 @@ instrumentation API.
 
 ## Evidence behind narrow, expiring exclusions
 
-The Eclipse CNA record for
-[CVE-2026-102469](https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/102xxx/CVE-2026-102469.json)
-identifies `io.vertx:vertx-db2-client`: DRDA UDT data deserialization through
-`ObjectInputStream`. Updated databases associate the same DB2-only advisory with multiple
-non-DB2 Vert.x 4.5.34 modules (including core, web, web-client, web-common,
-grpc and grpc-server). An artifact/product CPE association does not establish
-that the DB2 implementation is present. The exclusion matches only non-DB2 `io.vertx` package URLs at exactly 4.5.34 and that
-single CVE. Package names containing `db2`, other groups and other versions
-never match the exclusion; an independent runtime guard must also pass.
+The Quarkus 3.40.1.1 candidate manages Vert.x 4.5.35, outside the affected
+4.x range in the Eclipse CNA record for
+[CVE-2026-102469](https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/102xxx/CVE-2026-102469.json).
+The former non-DB2 Vert.x 4.5.34 package-URL exclusion is removed entirely.
+The guard regression rejects reintroducing that advisory exclusion. Full fresh
+NVD analysis must verify the candidate without it; changing a declared platform
+version alone is not qualification of the resolved runtime.
 
 The Eclipse CNA records for
 [CVE-2017-7657](https://github.com/CVEProject/cvelistV5/blob/main/cves/2017/7xxx/CVE-2017-7657.json)
@@ -29,7 +27,7 @@ describe Jetty Server HTTP request smuggling. The Maven Central NPN API artifact
 Its SHA1 is `d8e347c5b0ee0bf38a44789465ef28d01ac12219`. The exclusion requires
 that exact artifact hash and those two CVEs, not every Jetty advisory.
 
-Both exclusions expire on 2026-12-31. The CVSS 9.0 release threshold is unchanged.
+The remaining exact-artifact exclusions expire on 2026-12-31. The CVSS 9.0 release threshold is unchanged.
 New artifact versions and new advisories require fresh review.
 
 ## Independent package boundary
@@ -43,7 +41,7 @@ nested archives and inspection bounds fail closed. It reads archive entry names
 without extracting application contents or logging customer/provider data.
 
 Five regression tests cover the NPN API distinction, each affected namespace,
-additional runtime jars, nested archives, missing/unrecognized packages and exclusion URL boundaries.
+additional runtime jars, nested archives, missing/unrecognized packages and the absence of any DB2 advisory waiver.
 The security workflow also prints the filtered Maven dependency origins before
 analysis. A green exclusion file alone is insufficient: the runtime boundary,
 fresh NVD scan, image vulnerability gate, API tests, unchanged contract and

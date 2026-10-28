@@ -2,7 +2,7 @@ name: Security Scan
 
 on:
   push:
-    branches: [main, release/backend-security-qualified]
+    branches: [main, release/backend-security-qualified, agents/cto-backend-platform-refresh]
     paths:
       - pom.xml
       - Dockerfile

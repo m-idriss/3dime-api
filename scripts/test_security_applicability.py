@@ -1,7 +1,6 @@
 """Regression coverage for the release applicability boundary."""
 
 import importlib.util
-import re
 from pathlib import Path
 import tempfile
 import unittest
@@ -14,13 +13,12 @@ spec.loader.exec_module(module)
 
 
 class ApplicabilityTests(unittest.TestCase):
-    def test_exclusion_never_matches_db2_other_versions_or_other_groups(self):
+    def test_no_vertx_db2_advisory_exclusion_remains(self):
         root = ET.parse(Path(__file__).resolve().parents[1] / "dependency-check-suppressions.xml").getroot()
-        pattern = next(node.text for node in root.iter() if node.tag.endswith("}packageUrl"))
-        for name in ["vertx-core", "vertx-web", "vertx-web-client", "vertx-web-common", "vertx-grpc", "vertx-grpc-server"]:
-            self.assertRegex(f"pkg:maven/io.vertx/{name}@4.5.34?type=jar", pattern)
-        for url in ["pkg:maven/io.vertx/vertx-db2-client@4.5.34", "pkg:maven/io.vertx/vertx-db2-client@4.5.34?type=jar", "pkg:maven/io.vertx/vertx-web@4.5.35", "pkg:maven/other/vertx-web@4.5.34", "pkg:maven/io.vertx/vertx-web@4.5.340"]:
-            self.assertIsNone(re.search(pattern, url))
+        cves = [node.text for node in root.iter() if node.tag.endswith("}cve")]
+        self.assertNotIn("CVE-2026-102469", cves)
+        self.assertEqual(set(cves), {"CVE-2017-7657", "CVE-2017-7658"})
+        self.assertFalse(any(node.tag.endswith("}packageUrl") for node in root.iter()))
 
     def package(self, root, extra=()):
         with zipfile.ZipFile(root / "3dime-api-runner.jar", "w") as archive:
