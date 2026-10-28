@@ -1,0 +1,71 @@
+name: Read-only production health diagnostic
+on:
+  push:
+    branches: [operations/production-health-diagnostic]
+    paths: [.github/workflows/production-health-diagnostic.yml]
+permissions: {}
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Inspect public status without logging response data or errors
+        run: |
+          python3 - <<'PY'
+          import json
+          import urllib.error
+          import urllib.request
+
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, *args):
+                  return None
+          opener = urllib.request.build_opener(NoRedirect)
+          categories = {
+              "missing gemini api credentials": "missing_gemini_credentials",
+              "invalid_grant": "google_token_rejected",
+              "permission_denied": "dependency_permission_denied",
+              "newclientinterceptor": "firestore_telemetry_linkage",
+              "nosuchmethoderror": "binary_linkage_error",
+              "timed out": "dependency_timeout",
+              "timeout": "dependency_timeout",
+              "deadline": "dependency_timeout",
+              "unavailable": "dependency_unavailable",
+              "403": "upstream_access_denied",
+              "401": "upstream_auth_rejected",
+          }
+          known = {"firestore", "gemini", "github", "notion", "liveness"}
+          for host in ["api.photocalia.com", "api.3dime.com"]:
+              for path in ["/health/live", "/health/ready", "/health"]:
+                  result = {"host": host, "path": path}
+                  try:
+                      request = urllib.request.Request("https://" + host + path, headers={"User-Agent": "Photocalia-health-diagnostic/1"})
+                      try:
+                          response = opener.open(request, timeout=15)
+                      except urllib.error.HTTPError as error:
+                          response = error
+                      with response:
+                          result["http"] = response.code
+                          data = response.read(65537)
+                      if len(data) > 65536:
+                          result["body"] = "over_size_limit"
+                      else:
+                          try:
+                              body = json.loads(data)
+                          except (ValueError, UnicodeError):
+                              result["body"] = "non_json"
+                          else:
+                              status = body.get("status")
+                              result["status"] = status if status in ["UP", "DOWN"] else "unknown"
+                              result["checks"] = []
+                              for check in body.get("checks", [])[:20]:
+                                  name = check.get("name")
+                                  if name not in known:
+                                      continue
+                                  detail = check.get("data", {})
+                                  error = str(detail.get("error", "")).lower()
+                                  category = next((label for text, label in categories.items() if text in error), "not_classified")
+                                  result["checks"].append({"name": name, "status": "UP" if check.get("status") == "UP" else "DOWN", "degraded": detail.get("status") == "DOWN", "category": category})
+                  except Exception:
+                      result["transport"] = "failed_without_response_details"
+                  print(json.dumps(result))
+          PY
