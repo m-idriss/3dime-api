@@ -12,9 +12,10 @@ instrumentation API.
 The Eclipse CNA record for
 [CVE-2026-102469](https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/102xxx/CVE-2026-102469.json)
 identifies `io.vertx:vertx-db2-client`: DRDA UDT data deserialization through
-`ObjectInputStream`. The observed matches were on `vertx-web` and
-`vertx-grpc-server` 4.5.34. An artifact/product CPE association does not establish
-that the DB2 implementation is present. The exclusion matches only those two
+`ObjectInputStream`. The initial matches were on `vertx-web` and `vertx-grpc-server` 4.5.34;
+a freshly updated database also matches `vertx-core` and `vertx-web-client`
+4.5.34 with the same DB2-only advisory. An artifact/product CPE association does not establish
+that the DB2 implementation is present. The exclusion matches only those four
 exact package URLs and that single CVE.
 
 The Eclipse CNA records for
@@ -50,3 +51,19 @@ package checks must all pass.
 No threshold reduction, global CVE exclusion or analyzer disabling is introduced.
 The container scanner now explicitly returns exit code 1 for its configured
 fixable high/critical policy. Existing scanner coverage limits still apply.
+
+## Release verification
+
+The isolated warm qualification checks out and asserts the exact reviewed
+release SHA while restoring the existing trusted branch-scoped public NVD
+cache. It forces an API refresh before analysis; no stale-data fallback is
+allowed. The runtime package guard was successfully verified in the hosted
+release analysis. The temporary cold qualification push trigger is removed
+before integration; normal weekly/manual scans retain their bounds.
+
+After the authorized main merge, `verify-production-release.yml` waits for the
+Cloud Build deployment check on that exact commit, then performs bounded public
+GETs of API health and frontend availability. It has checks:read only, no
+checkout or production/provider credentials, a 23-minute job limit and no
+customer/provider operation. A missing, failed or timed-out deployment check
+cannot be reported as a successful release.

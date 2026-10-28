@@ -1,8 +1,6 @@
 name: Security Scan
 
 on:
-  push:
-    branches: [release/backend-security-qualified]
   schedule:
     - cron: "24 4 * * 1"
   workflow_dispatch:
