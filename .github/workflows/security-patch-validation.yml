@@ -1,0 +1,40 @@
+name: Backend security patch validation
+on:
+  pull_request:
+    branches: [main]
+    paths: [Dockerfile, pom.xml, .github/workflows/security-patch-validation.yml]
+permissions:
+  contents: read
+concurrency:
+  group: backend-security-patch-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  container:
+    name: Container high and critical dependency gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout isolated revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Build local image without publishing
+        run: docker build --pull --tag 3dime-api-security:${{ github.sha }} .
+      - name: Require no fixable high or critical findings
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          image-ref: 3dime-api-security:${{ github.sha }}
+          format: json
+          output: security-patch-results.json
+          severity: HIGH,CRITICAL
+          scanners: vuln
+          ignore-unfixed: true
+          exit-code: '1'
+      - name: Retain dependency findings only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: backend-security-patch-results
+          path: security-patch-results.json
+          if-no-files-found: error
+          retention-days: 3

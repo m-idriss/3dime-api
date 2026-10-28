@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+  <suppress until="2026-12-31Z">
+    <notes><![CDATA[
+      NPN API only: four NextProtoNego API classes, no HTTP parser/server.
+      The Eclipse CNA describes Jetty Server HTTP request smuggling, not NPN API.
+      Exact Maven Central artifact SHA1; packaged Jetty HTTP/server classes are
+      independently forbidden by the security profile applicability guard.
+      https://github.com/CVEProject/cvelistV5/blob/main/cves/2017/7xxx/CVE-2017-7657.json
+      https://github.com/CVEProject/cvelistV5/blob/main/cves/2017/7xxx/CVE-2017-7658.json
+    ]]></notes>
+    <sha1>d8e347c5b0ee0bf38a44789465ef28d01ac12219</sha1>
+    <cve>CVE-2017-7657</cve>
+    <cve>CVE-2017-7658</cve>
+  </suppress>
+  <suppress until="2026-12-31Z">
+    <notes><![CDATA[
+      The Eclipse CNA identifies io.vertx:vertx-db2-client DRDA UDT deserialization.
+      Non-DB2 Vert.x artifacts do not implement the affected DB2 client.
+      Only non-DB2 package URLs at this exact version are excluded; the security profile
+      fails if DB2 client classes enter the packaged runtime.
+      https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/102xxx/CVE-2026-102469.json
+      https://github.com/eclipse-vertx/vertx-sql-client/security/advisories/GHSA-j4vf-w939-pgxf
+    ]]></notes>
+    <packageUrl regex="true">^pkg:maven/io\.vertx/(?![^@]*db2)[A-Za-z0-9._-]+@4\.5\.34(\?.*)?$</packageUrl>
+    <cve>CVE-2026-102469</cve>
+  </suppress>
+</suppressions>

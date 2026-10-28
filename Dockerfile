@@ -13,6 +13,9 @@ RUN mvn clean package -DskipTests
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine
 
+# Apply the published Brotli security patch in the existing runtime image family.
+RUN apk add --no-cache --upgrade 'brotli-libs>=1.2.1-r0'
+
 WORKDIR /app
 
 # Copy uber-jar and bootstrap files from builder

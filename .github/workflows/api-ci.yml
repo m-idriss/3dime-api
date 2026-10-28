@@ -8,6 +8,9 @@ on:
       - ".github/workflows/api-ci.yml"
       - "pom.xml"
       - "src/**"
+      - "scripts/verify-security-applicability.py"
+      - "scripts/test_security_applicability.py"
+      - "dependency-check-suppressions.xml"
   workflow_dispatch:
 
 permissions:
