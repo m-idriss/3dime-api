@@ -2,7 +2,15 @@ name: Security Scan
 
 on:
   push:
-    branches: [release/backend-security-qualified]
+    branches: [main, release/backend-security-qualified]
+    paths:
+      - pom.xml
+      - Dockerfile
+      - src/**
+      - scripts/verify-security-applicability.py
+      - scripts/test_security_applicability.py
+      - dependency-check-suppressions.xml
+      - .github/workflows/security-scan.yml
   schedule:
     - cron: "24 4 * * 1"
   workflow_dispatch:
@@ -62,7 +70,7 @@ jobs:
       - name: Bootstrap empty database from official annual feeds
         id: bootstrap
         if: steps.nvd-cache.outputs.cache-matched-key == ''
-        timeout-minutes: 20
+        timeout-minutes: 25
         shell: bash
         run: |
           set -euo pipefail

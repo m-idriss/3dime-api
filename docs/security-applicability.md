@@ -59,9 +59,11 @@ The isolated warm qualification checks out and asserts the exact reviewed
 release SHA while restoring the existing trusted branch-scoped public NVD
 cache. It forces an API refresh before analysis; no stale-data fallback is
 allowed. The runtime package guard was successfully verified in the hosted
-release analysis. The isolated `release/backend-security-qualified` branch runs complete security
-qualification on pushes; it does not deploy. Normal weekly/manual scans retain
-the same bounds. No daily model schedule is introduced.
+release analysis. Runtime/security changes on main and the isolated
+`release/backend-security-qualified` branch run complete security qualification.
+The scan itself does not deploy. First database initialization is bounded to
+25 minutes after the observed 19m26s cold update; the outer job remains bounded
+to 35 minutes. Normal weekly/manual scans remain available. No daily model schedule is introduced.
 
 After the authorized main merge, `verify-production-release.yml` waits for the
 Cloud Build deployment check on that exact commit, then performs bounded public
