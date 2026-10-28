@@ -1,11 +1,6 @@
 name: Security Scan
 
 on:
-  push:
-    branches: [security/prepare-nvd-credential]
-    paths:
-      - .github/workflows/security-scan.yml
-      - docs/security-scan-setup.md
   schedule:
     - cron: "24 4 * * 1"
   workflow_dispatch:
