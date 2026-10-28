@@ -30,8 +30,20 @@ jobs:
           java-version: "21"
           cache: maven
 
+      - name: Require securely configured NVD credential
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        shell: bash
+        run: |
+          if [[ -z "$NVD_API_KEY" ]]; then
+            echo "Configure the NVD_API_KEY repository Actions secret before dependency scanning."
+            exit 1
+          fi
+
       - name: Run OWASP Dependency-Check
-        run: mvn -B -ntp -Psecurity-scan verify -DskipTests
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: mvn -B -ntp -Psecurity-scan verify -DskipTests -DnvdApiKeyEnvironmentVariable=NVD_API_KEY
 
       - name: Upload dependency scan report
         if: always()
