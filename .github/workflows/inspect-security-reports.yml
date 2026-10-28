@@ -69,3 +69,37 @@ jobs:
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as output:
               output.write(summary)
           PY
+  nvd-access:
+    name: Verify NVD access without disclosing the credential
+    if: github.repository == 'm-idriss/3dime-api' && github.ref == 'refs/heads/security/prepare-nvd-credential'
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    permissions: {}
+    steps:
+      - name: Make one bounded NVD access request
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import http.client, os, sys
+          key = os.environ.get('NVD_API_KEY')
+          if not key:
+              raise SystemExit('NVD credential is unavailable; no request made.')
+          connection = http.client.HTTPSConnection('services.nvd.nist.gov', timeout=20)
+          try:
+              connection.request('GET', '/rest/json/cves/2.0?resultsPerPage=1&startIndex=0', headers={'apiKey': key, 'User-Agent': 'Photocalia-Security-Qualification/1.0'})
+              response = connection.getresponse()
+              status = response.status
+              print(f'NVD access request HTTP {status}. No response body or headers retained.')
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as output:
+                  output.write(f'## NVD access qualification\n\nOne request using the configured secret returned HTTP {status}. No credential, response body or headers were logged or stored. This does not qualify the full Maven analysis.\n')
+              if status != 200:
+                  sys.exit(1)
+          except SystemExit:
+              raise
+          except Exception:
+              raise SystemExit('NVD access request failed or timed out; diagnostic details suppressed.')
+          finally:
+              connection.close()
+          PY
