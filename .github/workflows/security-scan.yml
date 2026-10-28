@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
-      NVD_DATA_DIR: ${{ runner.temp }}/nvd-database
+      NVD_DATA_DIR: /tmp/photocalia-nvd-database
 
     steps:
       - name: Checkout

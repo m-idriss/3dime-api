@@ -8,7 +8,7 @@ The scanner remains OWASP Dependency-Check 13.0.0, Java 21, with the existing vu
 
 ## Data flow
 
-1. Restore only the scanner's public data directory under the runner's temporary directory. The key includes scanner version, runner OS/architecture and a unique run/attempt identifier; the restore prefix selects the latest compatible, branch-scoped cache.
+1. Restore only the scanner's public data directory in the runner's temporary `/tmp/photocalia-nvd-database` directory. The key includes scanner version, runner OS/architecture and a unique run/attempt identifier; the restore prefix selects the latest compatible, branch-scoped cache.
 2. If no compatible cache exists, run the pinned plugin's update-only goal against official NVD annual JSON 2.0 feeds. No NVD credential is supplied to this bootstrap step. The exact v13.0.0 implementation supports official metadata fallback and annual/modified feeds. The old/current/modified metadata endpoints were live-qualified with HTTP 200 and digest/freshness fields present.
 3. If a compatible cache exists, force an incremental NVD API update using only the configured environment-variable selector. Credential values never appear in arguments or reports.
 4. Require successful update, a nonempty database within the configured size bounds, then save the completed public database before application analysis. The cache cannot contain the working tree, Maven settings, environment files, credentials or scan reports. A failed/partial update is never saved by this workflow.
@@ -24,4 +24,4 @@ Verify a cold cache miss, completed official-feed update, successful cache save 
 
 ## Current state
 
-Implementation and static YAML/shell/pin/credential-scope checks passed. Live cold/warm database qualification is pending. Official feed probe: https://github.com/m-idriss/3dime-api/actions/runs/40672690166 . Credential setup and initial interruption: https://github.com/m-idriss/photocalia-agents/issues/13 . Tested dependency patch remains isolated in draft backend PR #271.
+Implementation and static YAML/shell/pin/credential-scope checks passed. The first workflow dispatch-by-push was rejected before execution because runner context is unavailable in job-level environment expressions; the cache path is now a fixed runner-temporary path. Local actionlint 1.7.7 verification of both touched workflows passed after correction. Live cold/warm database qualification is pending. Official feed probe: https://github.com/m-idriss/3dime-api/actions/runs/40672690166 . Credential setup and initial interruption: https://github.com/m-idriss/photocalia-agents/issues/13 . Tested dependency patch remains isolated in draft backend PR #271.
