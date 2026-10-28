@@ -71,7 +71,7 @@ jobs:
           PY
   nvd-access:
     name: Verify NVD access without disclosing the credential
-    if: github.repository == 'm-idriss/3dime-api' && github.ref == 'refs/heads/security/prepare-nvd-credential'
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'm-idriss/3dime-api' && github.ref == 'refs/heads/security/prepare-nvd-credential'
     runs-on: ubuntu-latest
     timeout-minutes: 1
     permissions: {}
@@ -103,3 +103,34 @@ jobs:
           finally:
               connection.close()
           PY
+  nvd-feeds:
+    name: Verify official NVD bulk-feed metadata
+    if: github.repository == 'm-idriss/3dime-api' && github.ref == 'refs/heads/security/prepare-nvd-credential'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Check official metadata without credentials
+        shell: bash
+        run: |
+          python3 - <<'PYFEED'
+          import datetime, http.client, re
+          for year in ['modified', '2002', str(datetime.datetime.now(datetime.timezone.utc).year)]:
+              connection = http.client.HTTPSConnection('nvd.nist.gov', timeout=20)
+              try:
+                  connection.request('GET', f'/feeds/json/cve/2.0/nvdcve-2.0-{year}.meta', headers={'User-Agent': 'Photocalia-Security-Qualification/1.0'})
+                  response = connection.getresponse()
+                  if response.status != 200:
+                      raise SystemExit(f'Official feed metadata {year}: HTTP {response.status}.')
+                  data = response.read(16385)
+                  if len(data) > 16384:
+                      raise SystemExit('Official feed metadata exceeds limit.')
+                  properties = dict(line.split(':', 1) for line in data.decode('utf-8').splitlines() if ':' in line)
+                  if not re.fullmatch('[0-9a-fA-F]{64}', properties.get('sha256', '').strip()):
+                      raise SystemExit('Official feed digest metadata is unavailable.')
+                  if not properties.get('lastModifiedDate'):
+                      raise SystemExit('Official feed freshness metadata is unavailable.')
+                  print(f'Official feed metadata {year}: HTTP 200; digest and freshness fields available. No credentials used.')
+              finally:
+                  connection.close()
+          PYFEED
