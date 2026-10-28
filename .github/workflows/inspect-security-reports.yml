@@ -1,0 +1,55 @@
+name: Inspect isolated security reports
+on:
+  push:
+    branches: [security/prepare-nvd-credential]
+    paths: [.github/workflows/inspect-security-reports.yml]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Security Scan run ID in this repository
+        required: true
+        default: '40666627058'
+        type: string
+permissions:
+  actions: read
+jobs:
+  inspect:
+    if: github.repository == 'm-idriss/3dime-api' && github.ref == 'refs/heads/security/prepare-nvd-credential'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Inspect SARIF inventory without exposing messages or source snippets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SCAN_RUN_ID: ${{ inputs.run_id || '40666627058' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SCAN_RUN_ID" =~ ^[1-9][0-9]{0,15}$ ]]
+          gh api "repos/m-idriss/3dime-api/actions/runs/$SCAN_RUN_ID/artifacts?per_page=100" > "$RUNNER_TEMP/scan-artifacts.json"
+          python3 - <<'PY'
+          import json, os, re, subprocess, zipfile, io
+          inventory = json.load(open(os.environ['RUNNER_TEMP'] + '/scan-artifacts.json'))
+          matches = [a for a in inventory['artifacts'] if a['name'] == 'trivy-container-report' and not a['expired']]
+          if len(matches) != 1:
+              raise SystemExit('Expected exactly one available container report.')
+          artifact_id = matches[0]['id']
+          if not isinstance(artifact_id, int) or artifact_id <= 0 or matches[0]['size_in_bytes'] > 2_000_000:
+              raise SystemExit('Invalid artifact metadata.')
+          result = subprocess.run(['gh', 'api', f'repos/m-idriss/3dime-api/actions/artifacts/{artifact_id}/zip'], capture_output=True, timeout=45)
+          if result.returncode or len(result.stdout) > 2_000_000:
+              raise SystemExit('Artifact download unavailable or oversized; details suppressed.')
+          with zipfile.ZipFile(io.BytesIO(result.stdout)) as archive:
+              files = [f for f in archive.infolist() if f.filename.endswith('.sarif')]
+              if len(files) != 1 or files[0].file_size > 5_000_000:
+                  raise SystemExit('Invalid SARIF inventory.')
+              report = json.loads(archive.read(files[0]))
+          if report.get('version') != '2.1.0' or not isinstance(report.get('runs'), list):
+              raise SystemExit('Invalid SARIF report.')
+          results = [item for run in report['runs'] for item in run.get('results', [])]
+          cves = sorted({item.get('ruleId', '') for item in results if re.fullmatch(r'CVE-[0-9]{4}-[0-9]{4,12}', item.get('ruleId', ''))})
+          summary = f'## Container SARIF inspection\n\nScan run: {os.environ["SCAN_RUN_ID"]}. Artifact: {artifact_id}.\n\nResult entries: {len(results)}. Unique CVE IDs: {len(cves)}.\n\n' + '\n'.join('- ' + cve for cve in cves[:100]) + '\n\nCounts include the report inventory; a successful scanner job is not proof of zero findings. No messages, snippets or secret findings are printed.\n'
+          print(summary)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as output:
+              output.write(summary)
+          PY
