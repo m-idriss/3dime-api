@@ -1,8 +1,5 @@
 name: Inspect isolated security reports
 on:
-  push:
-    branches: [security/prepare-nvd-credential]
-    paths: [.github/workflows/inspect-security-reports.yml]
   workflow_dispatch:
     inputs:
       run_id:
