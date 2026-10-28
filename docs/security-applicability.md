@@ -67,7 +67,11 @@ to 35 minutes. Normal weekly/manual scans remain available. No daily model sched
 
 After the authorized main merge, `verify-production-release.yml` waits for the
 Cloud Build deployment check on that exact commit, then performs bounded public
-GETs of API health and frontend availability. It has checks:read only, no
-checkout or production/provider credentials, a 23-minute job limit and no
+GETs of both API domains and frontend availability. Transient startup HTTP
+429/5xx or network failures allow at most six attempts with ten-second waits;
+authentication, redirect, invalid health/identity and oversized responses fail
+closed without being reported healthy. Eight offline regressions execute the
+actual inline verifier with synthetic responses. It has checks:read only, no
+checkout or production/provider credentials, a 25-minute job limit and no
 customer/provider operation. A missing, failed or timed-out deployment check
 cannot be reported as a successful release.
