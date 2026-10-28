@@ -25,7 +25,7 @@ jobs:
       - name: Checkout exact reviewed release source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
-          ref: 7a058727a436b7f01827580c97d6c383d36bfd88
+          ref: 937de2832a73dc48dbb90d7aa0efd7256ec945cd
           persist-credentials: false
 
       - name: Set up Java 21
@@ -37,7 +37,7 @@ jobs:
 
       - name: Verify exact source and applicability regression tests
         run: |
-          test "$(git rev-parse HEAD)" = 7a058727a436b7f01827580c97d6c383d36bfd88
+          test "$(git rev-parse HEAD)" = 937de2832a73dc48dbb90d7aa0efd7256ec945cd
           python3 -m unittest discover -s scripts -p 'test_security_applicability.py'
           mvn -B -ntp dependency:tree -Dincludes=org.eclipse.jetty.npn:npn-api,io.vertx:vertx-db2-client,io.vertx:vertx-web,io.vertx:vertx-grpc-server
 
