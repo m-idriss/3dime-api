@@ -135,7 +135,7 @@ class CalendarNormalizerTest {
     void foldsLongUtf8ContentAtRfc5545ByteLimit() {
         String providerIcs = calendar("""
                 BEGIN:VEVENT
-                SUMMARY:Réunion très importante avec une équipe internationale et plusieurs participants éloignés
+                SUMMARY:International planning with a long synthetic title and Unicode symbols \u2603 \u2603 \u2603 \u2603 \u2603 \u2603 \u2603 \u2603
                 DTSTART:20260915T183000Z
                 DTEND:20260915T193000Z
                 END:VEVENT
@@ -164,6 +164,41 @@ class CalendarNormalizerTest {
 
         assertEquals(first.icsContent(), replay.icsContent());
         assertTrue(replay.warnings().isEmpty());
+    }
+
+    @Test
+    void rejectsImpossibleCalendarDatesInsteadOfSilentlyNormalizingThem() {
+        for (String value : List.of("20260230T090000Z", "20260229T090000Z", "20261301T090000Z",
+                "20261025T250000Z")) {
+            assertThrows(ProcessingException.class, () -> normalizer.normalize(calendar(
+                    "BEGIN:VEVENT\nSUMMARY:Invalid synthetic date\nDTSTART:" + value + "\nEND:VEVENT"), "UTC"));
+        }
+    }
+
+    @Test
+    void rejectsNonexistentLocalTimesAtDaylightSavingTransitions() {
+        assertThrows(ProcessingException.class, () -> normalizer.normalize(calendar("""
+                BEGIN:VEVENT
+                SUMMARY:Synthetic spring transition
+                DTSTART;TZID=Europe/Paris:20260329T023000
+                END:VEVENT
+                """), "UTC"));
+        assertThrows(ProcessingException.class, () -> normalizer.normalize(calendar("""
+                BEGIN:VEVENT
+                SUMMARY:Synthetic spring transition
+                DTSTART:20260308T023000
+                END:VEVENT
+                """), "America/New_York"));
+    }
+
+    @Test
+    void preservesValidLeapDaysAndUtcTimesAcrossDaylightSavingBoundaries() {
+        for (String value : List.of("20240229T090000Z", "20260329T023000Z", "20261025T013000Z")) {
+            String result = normalizer.normalize(calendar(
+                    "BEGIN:VEVENT\nSUMMARY:Valid synthetic date\nDTSTART:" + value + "\nEND:VEVENT"), "UTC")
+                    .icsContent();
+            assertTrue(result.contains("DTSTART:" + value));
+        }
     }
 
     private String calendar(String events) {

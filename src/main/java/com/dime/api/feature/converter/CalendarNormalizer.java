@@ -11,6 +11,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,7 +28,7 @@ import java.util.UUID;
 public class CalendarNormalizer {
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.BASIC_ISO_DATE;
-    private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss");
+    private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("uuuuMMdd'T'HHmmss").withResolverStyle(ResolverStyle.STRICT);
     private static final int MAX_PROVIDER_OUTPUT = 1_000_000;
     private static final int MAX_EVENTS = 500;
     private static final Set<String> SINGLE_VALUE_PROPERTIES =
@@ -130,6 +131,10 @@ public class CalendarNormalizer {
             LocalDateTime dateTime = LocalDateTime.parse(normalized, DATE_TIME);
             String tzid = property.parameters().get("TZID");
             ZoneId zone = utc ? ZoneOffset.UTC : tzid == null ? defaultZone : parseZone(tzid);
+            if (zone.getRules().getValidOffsets(dateTime).isEmpty()) {
+                throw invalid("nonexistent_local_time", "event[" + index + "]."
+                        + property.name().toLowerCase(Locale.ROOT) + " falls in a daylight-saving gap.");
+            }
             return new EventTimeResult(CalendarEventModel.EventTime.timed(dateTime, zone, utc),
                     !utc && tzid == null);
         } catch (DateTimeParseException e) {
