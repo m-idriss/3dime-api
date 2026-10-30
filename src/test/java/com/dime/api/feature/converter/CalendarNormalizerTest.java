@@ -1,0 +1,288 @@
+package com.dime.api.feature.converter;
+
+import com.dime.api.feature.shared.exception.ProcessingException;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class CalendarNormalizerTest {
+
+    private final CalendarNormalizer normalizer = new CalendarNormalizer();
+
+    @Test
+    void normalizesMultipleTypedEventsAndRegeneratesServerOwnedCalendar() {
+        String providerIcs = """
+                ```ics
+                BEGIN:VCALENDAR
+                VERSION:2.0
+                PRODID:-//Untrusted provider//EN
+                BEGIN:VEVENT
+                SUMMARY:Team planning
+                DTSTART;TZID=Europe/Paris:20261025T090000
+                DTEND;TZID=Europe/Paris:20261025T100000
+                LOCATION:Paris
+                END:VEVENT
+                BEGIN:VEVENT
+                SUMMARY:Public holiday
+                DTSTART;VALUE=DATE:20261111
+                DTEND;VALUE=DATE:20261112
+                END:VEVENT
+                END:VCALENDAR
+                ```
+                """;
+
+        CalendarNormalizer.NormalizedCalendar result = normalizer.normalize(providerIcs, "Europe/Paris");
+
+        assertEquals(2, result.eventCount());
+        assertTrue(result.warnings().isEmpty());
+        assertTrue(result.icsContent().contains("PRODID:-//PhotoCalia//Validated Calendar//EN"));
+        assertFalse(result.icsContent().contains("Untrusted provider"));
+        assertTrue(result.icsContent().contains("DTSTART;TZID=Europe/Paris:20261025T090000"));
+        assertTrue(result.icsContent().contains("DTSTART;VALUE=DATE:20261111"));
+        assertEquals(2, result.icsContent().split("BEGIN:VEVENT", -1).length - 1);
+    }
+
+    @Test
+    void assumesRequestedTimezoneForFloatingProviderTimesAndReturnsWarning() {
+        String providerIcs = calendar("""
+                BEGIN:VEVENT
+                SUMMARY:School meeting
+                DTSTART:20260915T183000
+                DTEND:20260915T193000
+                END:VEVENT
+                """);
+
+        CalendarNormalizer.NormalizedCalendar result = normalizer.normalize(providerIcs, "America/Toronto");
+
+        assertEquals(List.of("timezone_assumed:event[0]:America/Toronto"), result.warnings());
+        assertTrue(result.icsContent().contains("DTSTART;TZID=America/Toronto:20260915T183000"));
+    }
+
+    @Test
+    void rejectsMissingRequiredFieldsWithFieldLevelReason() {
+        ProcessingException exception = assertThrows(ProcessingException.class,
+                () -> normalizer.normalize(calendar("""
+                        BEGIN:VEVENT
+                        DTSTART:20260915T183000Z
+                        END:VEVENT
+                        """), "UTC"));
+
+        assertTrue(exception.getMessage().contains("event[0].summary"));
+    }
+
+    @Test
+    void rejectsEndBeforeStart() {
+        ProcessingException exception = assertThrows(ProcessingException.class,
+                () -> normalizer.normalize(calendar("""
+                        BEGIN:VEVENT
+                        SUMMARY:Impossible event
+                        DTSTART:20260915T193000Z
+                        DTEND:20260915T183000Z
+                        END:VEVENT
+                        """), "UTC"));
+
+        assertTrue(exception.getMessage().contains("end must be after"));
+    }
+
+    @Test
+    void escapesProviderTextInsteadOfAllowingPropertyInjection() {
+        String providerIcs = calendar("""
+                BEGIN:VEVENT
+                SUMMARY:Safe title\\nATTENDEE:mailto:unexpected@example.com
+                DTSTART:20260915T183000Z
+                DTEND:20260915T193000Z
+                END:VEVENT
+                """);
+
+        CalendarNormalizer.NormalizedCalendar result = normalizer.normalize(providerIcs, "UTC");
+
+        assertTrue(result.icsContent().contains("SUMMARY:Safe title\\nATTENDEE:mailto:unexpected@example.com"));
+        assertFalse(result.icsContent().contains("\r\nATTENDEE:"));
+    }
+
+    @Test
+    void rejectsUnknownTimezoneAndMalformedOutput() {
+        assertThrows(ProcessingException.class,
+                () -> normalizer.normalize(calendar("""
+                        BEGIN:VEVENT
+                        SUMMARY:Bad zone
+                        DTSTART;TZID=Mars/Olympus:20260915T183000
+                        END:VEVENT
+                        """), "UTC"));
+        assertThrows(ProcessingException.class, () -> normalizer.normalize("BEGIN:VCALENDAR", "UTC"));
+    }
+
+    @Test
+    void rejectsDuplicateSingleValueFields() {
+        ProcessingException exception = assertThrows(ProcessingException.class,
+                () -> normalizer.normalize(calendar("""
+                        BEGIN:VEVENT
+                        SUMMARY:First title
+                        SUMMARY:Second title
+                        DTSTART:20260915T183000Z
+                        END:VEVENT
+                        """), "UTC"));
+
+        assertTrue(exception.getMessage().contains("duplicate summary"));
+    }
+
+    @Test
+    void foldsLongUtf8ContentAtRfc5545ByteLimit() {
+        String providerIcs = calendar("""
+                BEGIN:VEVENT
+                SUMMARY:International planning with a long synthetic title and Unicode symbols \u2603 \u2603 \u2603 \u2603 \u2603 \u2603 \u2603 \u2603
+                DTSTART:20260915T183000Z
+                DTEND:20260915T193000Z
+                END:VEVENT
+                """);
+
+        String result = normalizer.normalize(providerIcs, "UTC").icsContent();
+
+        for (String line : result.split("\\r\\n")) {
+            assertTrue(line.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 75, line);
+        }
+        assertTrue(result.contains("\r\n "));
+    }
+
+    @Test
+    void safelyRenormalizesStoredCalendarOnIdempotencyReplay() {
+        String providerIcs = calendar("""
+                BEGIN:VEVENT
+                SUMMARY:Replay-safe event
+                DTSTART:20260915T183000
+                DTEND:20260915T193000
+                END:VEVENT
+                """);
+
+        CalendarNormalizer.NormalizedCalendar first = normalizer.normalize(providerIcs, "Europe/Paris");
+        CalendarNormalizer.NormalizedCalendar replay = normalizer.normalize(first.icsContent(), "Europe/Paris");
+
+        assertEquals(first.icsContent(), replay.icsContent());
+        assertTrue(replay.warnings().isEmpty());
+    }
+
+    @Test
+    void rejectsImpossibleCalendarDatesInsteadOfSilentlyNormalizingThem() {
+        for (String value : List.of("20260230T090000Z", "20260229T090000Z", "20261301T090000Z",
+                "20261025T250000Z")) {
+            assertThrows(ProcessingException.class, () -> normalizer.normalize(calendar(
+                    "BEGIN:VEVENT\nSUMMARY:Invalid synthetic date\nDTSTART:" + value + "\nEND:VEVENT"), "UTC"));
+        }
+    }
+
+    @Test
+    void rejectsNonexistentLocalTimesAtDaylightSavingTransitions() {
+        assertThrows(ProcessingException.class, () -> normalizer.normalize(calendar("""
+                BEGIN:VEVENT
+                SUMMARY:Synthetic spring transition
+                DTSTART;TZID=Europe/Paris:20260329T023000
+                END:VEVENT
+                """), "UTC"));
+        assertThrows(ProcessingException.class, () -> normalizer.normalize(calendar("""
+                BEGIN:VEVENT
+                SUMMARY:Synthetic spring transition
+                DTSTART:20260308T023000
+                END:VEVENT
+                """), "America/New_York"));
+    }
+
+    @Test
+    void preservesValidLeapDaysAndUtcTimesAcrossDaylightSavingBoundaries() {
+        for (String value : List.of("20240229T090000Z", "20260329T023000Z", "20261025T013000Z")) {
+            String result = normalizer.normalize(calendar(
+                    "BEGIN:VEVENT\nSUMMARY:Valid synthetic date\nDTSTART:" + value + "\nEND:VEVENT"), "UTC")
+                    .icsContent();
+            assertTrue(result.contains("DTSTART:" + value));
+        }
+    }
+
+    @Test
+    void validatesRecurrenceValuesAndMutuallyExclusiveFields() {
+        for (String rule : List.of("FREQ=BOGUS", "FREQ=DAILY;COUNT=0", "FREQ=DAILY;COUNT=1,2",
+                "FREQ=DAILY;COUNT=2;UNTIL=20261201T000000Z", "FREQ=DAILY;FREQ=WEEKLY",
+                "FREQ=MONTHLY;BYMONTHDAY=32", "FREQ=WEEKLY;BYDAY=0MO", "FREQ=DAILY;BYHOUR=24",
+                "FREQ=DAILY;UNTIL=20260230T000000Z", "FREQ=DAILY;UNKNOWN=1")) {
+            assertThrows(ProcessingException.class, () -> normalizer.normalize(calendar(
+                    "BEGIN:VEVENT\nSUMMARY:Synthetic recurrence\nDTSTART:20260101T090000Z\nRRULE:"
+                            + rule + "\nEND:VEVENT"), "UTC"));
+        }
+        for (String rule : List.of("FREQ=WEEKLY;BYDAY=MO,WE;COUNT=10",
+                "FREQ=MONTHLY;BYDAY=-1FR;INTERVAL=2", "FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=29")) {
+            assertTrue(normalizer.normalize(calendar(
+                    "BEGIN:VEVENT\nSUMMARY:Synthetic recurrence\nDTSTART:20260101T090000Z\nRRULE:"
+                            + rule + "\nEND:VEVENT"), "UTC").icsContent().contains("RRULE:" + rule));
+        }
+    }
+
+    @Test
+    void emitsUtcCreationStampAndPreservesItDuringReplay() {
+        String first = normalizer.normalize(calendar("""
+                BEGIN:VEVENT
+                SUMMARY:Synthetic creation timestamp
+                DTSTART:20260101T090000Z
+                END:VEVENT
+                """), "UTC").icsContent();
+        assertTrue(first.lines().anyMatch(line -> line.matches("DTSTAMP:[0-9]{8}T[0-9]{6}Z")));
+        assertEquals(first, normalizer.normalize(first, "UTC").icsContent());
+        assertThrows(ProcessingException.class, () -> normalizer.normalize(calendar("""
+                BEGIN:VEVENT
+                SUMMARY:Invalid creation timestamp
+                DTSTART:20260101T090000Z
+                DTSTAMP:20260230T000000Z
+                END:VEVENT
+                """), "UTC"));
+    }
+
+    @Test
+    void acceptsQuotedZoneIdsAndWarnsForAmbiguousOverlapTimes() {
+        var result = normalizer.normalize(calendar("""
+                BEGIN:VEVENT
+                SUMMARY:Synthetic fall transition
+                DTSTART;TZID="Europe/Paris":20261025T023000
+                END:VEVENT
+                """), "UTC");
+        assertTrue(result.icsContent().contains("DTSTART;TZID=Europe/Paris:20261025T023000"));
+        assertEquals(List.of("timezone_ambiguous:event[0]:Europe/Paris"), result.warnings());
+    }
+
+    @Test
+    void preservesLiteralBackslashBeforeNewlineEscapeLetters() {
+        for (String suffix : List.of("n", "N")) {
+            String title = "Synthetic literal " + "\\".repeat(2) + suffix;
+            String input = calendar("BEGIN:VEVENT\nSUMMARY:" + title
+                    + "\nDTSTART:20260101T090000Z\nEND:VEVENT");
+            String first = normalizer.normalize(input, "UTC").icsContent();
+            assertTrue(first.contains("SUMMARY:" + title + "\r\n"));
+            assertEquals(first, normalizer.normalize(first, "UTC").icsContent());
+        }
+    }
+
+    @Test
+    void preservesEscapedPunctuationAndNewlinesWithoutPropertyInjection() {
+        String title = "Synthetic\\; planning\\, review\\nATTENDEE:demo@example.invalid";
+        String first = normalizer.normalize(calendar("BEGIN:VEVENT\nSUMMARY:" + title
+                + "\nDTSTART:20260101T090000Z\nEND:VEVENT"), "UTC").icsContent();
+        assertTrue(first.contains("SUMMARY:" + title));
+        assertFalse(first.contains("\r\nATTENDEE:"));
+        assertEquals(first, normalizer.normalize(first, "UTC").icsContent());
+    }
+
+    @Test
+    void rejectsConflictingDuplicateTimezoneParameters() {
+        assertThrows(ProcessingException.class, () -> normalizer.normalize(calendar("""
+                BEGIN:VEVENT
+                SUMMARY:Synthetic conflicting zones
+                DTSTART;TZID=Europe/Paris;tzid=UTC:20260101T090000
+                END:VEVENT
+                """), "UTC"));
+    }
+
+    private String calendar(String events) {
+        return "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n" + events.strip() + "\r\nEND:VCALENDAR\r\n";
+    }
+}

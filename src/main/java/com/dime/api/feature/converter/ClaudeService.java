@@ -20,7 +20,7 @@ import java.util.regex.Pattern;
 
 @Slf4j
 @ApplicationScoped
-public class ClaudeService {
+public class ClaudeService implements CalendarAiProvider {
 
     private static final Pattern BASE64_PATTERN = Pattern.compile("^data:(.+?);base64,(.+)$");
     private static final String ANTHROPIC_VERSION = "2023-06-01";
@@ -45,7 +45,8 @@ public class ClaudeService {
     Optional<String> apiKey;
 
     @Timeout(value = 60, unit = ChronoUnit.SECONDS)
-    public String generateIcs(ConverterRequest request) {
+    @Override
+    public String generateCalendar(ConverterRequest request) {
         if (apiKey.isEmpty() || apiKey.get().trim().isEmpty()) {
             throw new ExternalServiceException("Claude", "Missing Claude API key (CLAUDE_API_KEY)");
         }
@@ -132,8 +133,13 @@ public class ClaudeService {
             }
         }
 
-        log.error("Claude response did not contain expected content: {}", response.toString());
+        log.error("Claude response did not contain the expected text content fields");
         throw new ProcessingException("Claude API returned unexpected response format");
+    }
+
+    @Override
+    public String name() {
+        return "claude";
     }
 
 }
