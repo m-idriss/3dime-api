@@ -47,7 +47,7 @@
     <!-- Quarkus Platform -->
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
-    <quarkus.platform.version>3.39.2</quarkus.platform.version>
+    <quarkus.platform.version>3.40.1.1</quarkus.platform.version>
 
     <!-- Maven Plugin Versions -->
     <compiler-plugin.version>3.16.0</compiler-plugin.version>
@@ -60,10 +60,25 @@
     <!-- Firestore 3.38.0 needs newClientInterceptor(); 2.26+ renamed it, while older 2.1 uses removed semconv APIs. -->
     <opentelemetry-grpc.version>2.23.0-alpha</opentelemetry-grpc.version>
     <dotenv-java.version>3.2.0</dotenv-java.version>
+    <jackson-security.version>2.22.3</jackson-security.version>
+    <guava-security.version>33.7.2-jre</guava-security.version>
     <lombok.version>1.18.48</lombok.version>
   </properties>
   <dependencyManagement>
     <dependencies>
+      <!-- Keep the Jackson family aligned at the patched version before platform imports. -->
+      <dependency>
+        <groupId>com.fasterxml.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>${jackson-security.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>${guava-security.version}</version>
+      </dependency>
       <dependency>
         <groupId>${quarkus.platform.group-id}</groupId>
         <artifactId>${quarkus.platform.artifact-id}</artifactId>
@@ -74,7 +89,7 @@
       <dependency>
         <groupId>org.mockito</groupId>
         <artifactId>mockito-core</artifactId>
-        <version>5.23.0</version>
+        <version>5.24.0</version>
         <scope>test</scope>
       </dependency>
     </dependencies>
@@ -123,12 +138,12 @@
     <dependency>
       <groupId>com.google.firebase</groupId>
       <artifactId>firebase-admin</artifactId>
-      <version>9.10.0</version>
+      <version>9.11.0</version>
     </dependency>
     <dependency>
       <groupId>com.stripe</groupId>
       <artifactId>stripe-java</artifactId>
-      <version>33.4.1</version>
+      <version>33.4.2</version>
     </dependency>
     <!-- Source: https://mvnrepository.com/artifact/org.mockito/mockito-core -->
     <dependency>
@@ -346,6 +361,25 @@
       <build>
         <plugins>
           <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.5.1</version>
+            <executions>
+              <execution>
+                <id>verify-cve-applicability</id>
+                <phase>pre-integration-test</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>python3</executable>
+                  <arguments>
+                    <argument>${project.basedir}/scripts/verify-security-applicability.py</argument>
+                    <argument>${project.build.directory}</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
             <groupId>org.owasp</groupId>
             <artifactId>dependency-check-maven</artifactId>
             <version>13.0.0</version>
@@ -363,6 +397,9 @@
                 <format>SARIF</format>
               </formats>
               <failBuildOnCVSS>9.0</failBuildOnCVSS>
+              <suppressionFiles>
+                <suppressionFile>${project.basedir}/dependency-check-suppressions.xml</suppressionFile>
+              </suppressionFiles>
             </configuration>
           </plugin>
         </plugins>

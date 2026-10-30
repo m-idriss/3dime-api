@@ -26,6 +26,7 @@ public class QuotaReservation {
     public String networkHash;
     public String globalCounterId;
     public boolean freeProtectionApplied;
+    public boolean paidCreditUsed;
     public Timestamp periodStart;
     public Timestamp reservedAt;
     public Timestamp completedAt;

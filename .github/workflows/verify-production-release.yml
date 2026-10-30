@@ -1,0 +1,114 @@
+name: Verify production release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/verify-production-release.yml
+      - scripts/test_release_verification.py
+
+permissions: {}
+
+concurrency:
+  group: production-verification-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout verification regressions
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Test retry and failure boundaries without network access
+        run: python3 -m unittest discover -s scripts -p test_release_verification.py
+
+  verify:
+    if: github.repository == 'm-idriss/3dime-api' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      checks: read
+    steps:
+      - name: Wait for Cloud Build deployment of the exact commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..40}; do
+            result="$(gh api --hostname github.com \
+              "repos/m-idriss/3dime-api/commits/$GITHUB_SHA/check-runs?per_page=100" \
+              --jq '[.check_runs[] | select(.name == "deploy-dime-api (image-to-ics)" and .app.slug == "google-cloud-build")] | sort_by(.started_at) | last | if . == null then "missing" elif .status != "completed" then "pending" else .conclusion end')"
+            case "$result" in
+              success) echo "Cloud Build deployment succeeded for the exact release commit."; exit 0 ;;
+              missing|pending) sleep 30 ;;
+              *) echo "Cloud Build deployment did not succeed; production verification blocked."; exit 1 ;;
+            esac
+          done
+          echo "No successful exact-commit Cloud Build deployment within the bounded wait. Check the external trigger."
+          exit 1
+
+      - name: Verify public API health and frontend availability
+        timeout-minutes: 4
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import time
+          import urllib.error
+          import urllib.request
+
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, *args):
+                  return None
+
+          opener = urllib.request.build_opener(NoRedirect)
+          endpoints = [
+              ("https://api.photocalia.com/health", "api-photocalia"),
+              ("https://api.3dime.com/health", "api-3dime"),
+              ("https://www.photocalia.com/", "frontend"),
+          ]
+          for attempt in range(1, 7):
+              try:
+                  for url, kind in endpoints:
+                      request = urllib.request.Request(url, headers={"User-Agent": "Photocalia-release-verification/1"})
+                      with opener.open(request, timeout=10) as response:
+                          data = response.read(1_048_577)
+                          if response.status != 200 or len(data) > 1_048_576:
+                              raise SystemExit("Release endpoint failed status or size validation")
+                      if kind.startswith("api-"):
+                          try:
+                              health = json.loads(data)
+                          except (ValueError, UnicodeError):
+                              raise SystemExit("Invalid API health response") from None
+                          if not isinstance(health, dict) or health.get("status") != "UP":
+                              raise SystemExit("API health is not UP")
+                      elif b"<title>Photocalia" not in data:
+                          raise SystemExit("Frontend identity validation failed")
+                      print(f"{kind}: public verification passed")
+                  break
+              except urllib.error.HTTPError as error:
+                  code = error.code
+                  error.close()
+                  if code not in (429, 500, 502, 503, 504):
+                      raise SystemExit(f"Non-retryable public HTTP status: {code}") from None
+              except (urllib.error.URLError, TimeoutError):
+                  pass
+              if attempt == 6:
+                  raise SystemExit("Public availability did not recover within six bounded attempts")
+              print("Transient public availability failure; retrying within the bounded startup budget")
+              time.sleep(10)
+          PY
+
+      - name: Record release verification
+        run: |
+          echo "Cloud Build exact-commit deployment and public API/frontend verification passed for $GITHUB_SHA." >> "$GITHUB_STEP_SUMMARY"

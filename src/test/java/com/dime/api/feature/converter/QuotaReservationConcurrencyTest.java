@@ -42,6 +42,7 @@ class QuotaReservationConcurrencyTest {
     void setup() {
         quotaService = new QuotaService();
         quotaService.quotaLimitFree = 3;
+        quotaService.quotaLimitPlus = 15;
         quotaService.quotaLimitPro = 100;
         quotaService.quotaLimitBusiness = 120;
         quotaService.quotaLimitUnlimited = 1_000_000;
@@ -58,6 +59,100 @@ class QuotaReservationConcurrencyTest {
         when(firestoreInstance.get()).thenReturn(firestore.firestore);
         quotaService.firestoreInstance = firestoreInstance;
         quotaService.notionQuotaService = mock(NotionQuotaService.class);
+    }
+
+    @Test
+    void repeatedPaymentFulfillmentGrantsExactlyOneCredit() throws Exception {
+        firestore.userQuota = new UserQuota(PlanType.FREE, 3, 3, Timestamp.now(), Timestamp.now(), Timestamp.now());
+        ExecutorService executor = Executors.newFixedThreadPool(8);
+        try {
+            List<Callable<Void>> calls = new ArrayList<>();
+            for (int i = 0; i < 20; i++) calls.add(() -> {
+                quotaService.grantPaidCredit("user", "cs_same_payment"); return null;
+            });
+            for (var result : executor.invokeAll(calls)) result.get();
+            assertEquals(1, firestore.userQuota.paidCredits);
+            assertEquals(1, firestore.payments.size());
+            assertEquals(3, firestore.userQuota.quotaUsed);
+        } finally { executor.shutdownNow(); }
+    }
+
+    @Test
+    void successfulPaidConversionCannotLaterRefundTheCredit() {
+        firestore.userQuota = new UserQuota(PlanType.FREE, 3, 3, Timestamp.now(), Timestamp.now(), Timestamp.now());
+        firestore.userQuota.paidCredits = 1;
+        quotaService.reserveQuota("user", null, "paid-success", 1);
+        quotaService.completeReservation("user", "paid-success", "test", "BEGIN:VCALENDAR", 1);
+        quotaService.failReservation("user", "paid-success", "test", "late error", true);
+        assertEquals(0, firestore.userQuota.paidCredits);
+    }
+
+    @Test
+    void purchasedCreditIsConsumedAfterMonthlyQuotaAndRestoredOnceOnFailure() {
+        firestore.userQuota = new UserQuota(PlanType.FREE, 3, 3, Timestamp.now(), Timestamp.now(), Timestamp.now());
+        firestore.userQuota.paidCredits = 1;
+        var result = quotaService.reserveQuota("paid-user", null, "credit-request", 1);
+        assertTrue(result.reservation().paidCreditUsed);
+        assertEquals(0, firestore.userQuota.paidCredits);
+        assertEquals(3, firestore.userQuota.quotaUsed);
+        quotaService.failReservation("paid-user", "credit-request", "test", "failed", true);
+        quotaService.failReservation("paid-user", "credit-request", "test", "failed", true);
+        assertEquals(1, firestore.userQuota.paidCredits);
+        assertEquals(3, firestore.userQuota.quotaUsed);
+    }
+
+    @Test
+    void freeMonthlyAllowanceIsUsedBeforePurchasedCredits() {
+        firestore.userQuota = new UserQuota(PlanType.FREE, 0, 3, Timestamp.now(), Timestamp.now(), Timestamp.now());
+        firestore.userQuota.paidCredits = 1;
+        assertFalse(quotaService.reserveQuota("user", null, "monthly-first", 1).reservation().paidCreditUsed);
+        assertEquals(1, firestore.userQuota.paidCredits);
+        assertEquals(1, firestore.userQuota.quotaUsed);
+    }
+
+    @Test
+    void purchasedCreditWorksWhenFreeInstallationAllowanceIsExhausted() {
+        var identity = new QuotaIdentityService.QuotaIdentity("device-paid", null, "account");
+        for (int i = 0; i < 3; i++) quotaService.reserveQuota("user", null, "free-" + i, 1, identity);
+        firestore.userQuota.quotaUsed = 0;
+        firestore.userQuota.paidCredits = 1;
+        var reservation = quotaService.reserveQuota("user", null, "paid", 1, identity).reservation();
+        assertTrue(reservation.paidCreditUsed);
+        assertFalse(reservation.freeProtectionApplied);
+        assertEquals(3, firestore.subject("quotaDevices", "device-paid").usageCount);
+        assertEquals(0, firestore.userQuota.quotaUsed);
+    }
+
+    @Test
+    void concurrentAttemptsCannotSpendOneCreditTwice() throws Exception {
+        firestore.userQuota = new UserQuota(PlanType.FREE, 3, 3, Timestamp.now(), Timestamp.now(), Timestamp.now());
+        firestore.userQuota.paidCredits = 1;
+        ExecutorService executor = Executors.newFixedThreadPool(8);
+        try {
+            List<Callable<Boolean>> attempts = new ArrayList<>();
+            for (int i = 0; i < 20; i++) {
+                String key = "paid-" + i;
+                attempts.add(() -> {
+                    try { quotaService.reserveQuota("user", null, key, 1); return true; }
+                    catch (QuotaException e) { return false; }
+                });
+            }
+            long success = 0;
+            for (var result : executor.invokeAll(attempts)) if (result.get()) success++;
+            assertEquals(1, success);
+            assertEquals(0, firestore.userQuota.paidCredits);
+        } finally { executor.shutdownNow(); }
+    }
+
+    @Test
+    void plusLimitAndLegacyLimitsRemainDistinct() {
+        assertEquals(List.of(new QuotaService.PlanInfo(PlanType.FREE, 3),
+                new QuotaService.PlanInfo(PlanType.PLUS, 15)), quotaService.getPublicQuotaLimits());
+        firestore.userQuota = new UserQuota(PlanType.PLUS, 14, 15, Timestamp.now(), Timestamp.now(), Timestamp.now());
+        quotaService.reserveQuota("plus", null, "last", 1);
+        assertThrows(QuotaException.class, () -> quotaService.reserveQuota("plus", null, "over", 1));
+        firestore.userQuota.setPlanType(PlanType.PRO);
+        assertEquals(100, quotaService.reserveQuota("legacy", null, "pro", 1).limit());
     }
 
     @Test
@@ -163,6 +258,29 @@ class QuotaReservationConcurrencyTest {
                 firestore.reservations.get("refund-key").getStateType());
     }
 
+    @Test
+    void expiredPaidReservationIsRestoredOnceAndCannotBeCompletedLate() {
+        firestore.userQuota = new UserQuota(PlanType.FREE, 3, 3, Timestamp.now(), Timestamp.now(), Timestamp.now());
+        firestore.userQuota.paidCredits = 1;
+        quotaService.reserveQuota("user", null, "expired", 1);
+        firestore.reservations.get("expired").expiresAt = Timestamp.ofTimeSecondsAndNanos(1, 0);
+        assertEquals(1, quotaService.getQuotaStatus("user").paidCredits);
+        var replay = quotaService.reserveQuota("user", null, "expired", 1);
+        assertTrue(replay.replay());
+        assertEquals(QuotaReservationState.EXPIRED, replay.reservation().getStateType());
+        quotaService.completeReservation("user", "expired", "test", "BEGIN:VCALENDAR", 1);
+        assertEquals(1, firestore.userQuota.paidCredits);
+        quotaService.reserveQuota("user", null, "new-attempt", 1);
+        assertEquals(0, firestore.userQuota.paidCredits);
+    }
+
+    @Test
+    void adminPlansKeepLegacyLimits() {
+        assertEquals(5, quotaService.getQuotaLimits().size());
+        assertTrue(quotaService.getQuotaLimits().contains(new QuotaService.PlanInfo(PlanType.PRO, 100)));
+        assertTrue(quotaService.getQuotaLimits().contains(new QuotaService.PlanInfo(PlanType.BUSINESS, 120)));
+    }
+
     private static class InMemoryFirestoreHarness {
 
         final Firestore firestore = mock(Firestore.class);
@@ -179,8 +297,14 @@ class QuotaReservationConcurrencyTest {
         final Map<String, DocumentReference> subjectRefs = new HashMap<>();
         final Map<DocumentReference, QuotaSubject> subjects = new IdentityHashMap<>();
         UserQuota userQuota;
+        final CollectionReference paymentCollection = mock(CollectionReference.class);
+        final Map<String, DocumentReference> paymentRefs = new java.util.concurrent.ConcurrentHashMap<>();
+        final java.util.Set<DocumentReference> payments = new java.util.HashSet<>();
 
         InMemoryFirestoreHarness() {
+            when(userDoc.collection("creditPayments")).thenReturn(paymentCollection);
+            when(paymentCollection.document(any())).thenAnswer(invocation -> paymentRefs.computeIfAbsent(
+                    invocation.getArgument(0), ignored -> mock(DocumentReference.class)));
             when(firestore.collection("users")).thenReturn(users);
             when(firestore.collection("quotaDevices")).thenReturn(devices);
             when(firestore.collection("quotaNetworks")).thenReturn(networks);
@@ -191,6 +315,24 @@ class QuotaReservationConcurrencyTest {
             mockSubjectCollection(networks, "quotaNetworks");
             mockSubjectCollection(globals, "quotaGlobal");
             when(userDoc.collection("quotaReservations")).thenReturn(reservationCollection);
+            var query = mock(com.google.cloud.firestore.Query.class);
+            when(reservationCollection.whereEqualTo("state", "RESERVED")).thenReturn(query);
+            when(query.get()).thenAnswer(ignored -> {
+                synchronized (this) {
+                    List<com.google.cloud.firestore.QueryDocumentSnapshot> docs = new ArrayList<>();
+                    reservations.forEach((key, value) -> {
+                        if (value.getStateType() == QuotaReservationState.RESERVED) {
+                            var doc = mock(com.google.cloud.firestore.QueryDocumentSnapshot.class);
+                            when(doc.toObject(QuotaReservation.class)).thenReturn(value);
+                            when(doc.getReference()).thenReturn(reservationRefs.get(key));
+                            docs.add(doc);
+                        }
+                    });
+                    var result = mock(com.google.cloud.firestore.QuerySnapshot.class);
+                    when(result.getDocuments()).thenReturn(docs);
+                    return ApiFutures.immediateFuture(result);
+                }
+            });
             when(reservationCollection.document(any())).thenAnswer(invocation -> {
                 String key = invocation.getArgument(0);
                 synchronized (this) {
@@ -224,6 +366,10 @@ class QuotaReservationConcurrencyTest {
                 return transaction;
             }).when(transaction).set(any(DocumentReference.class), any(Object.class));
             doAnswer(invocation -> {
+                applySet(invocation.getArgument(0), invocation.getArgument(1));
+                return transaction;
+            }).when(transaction).set(any(DocumentReference.class), any(Map.class));
+            doAnswer(invocation -> {
                 applyUpdate(invocation.getArgument(0), invocation.getArgument(1));
                 return transaction;
             }).when(transaction).update(any(DocumentReference.class), any(Map.class));
@@ -245,6 +391,10 @@ class QuotaReservationConcurrencyTest {
 
         private DocumentSnapshot snapshotFor(DocumentReference ref) {
             DocumentSnapshot snapshot = mock(DocumentSnapshot.class);
+            if (paymentRefs.containsValue(ref)) {
+                when(snapshot.exists()).thenReturn(payments.contains(ref));
+                return snapshot;
+            }
             if (ref == userDoc) {
                 when(snapshot.exists()).thenReturn(userQuota != null);
                 when(snapshot.toObject(UserQuota.class)).thenReturn(userQuota);
@@ -266,6 +416,8 @@ class QuotaReservationConcurrencyTest {
         }
 
         private void applySet(DocumentReference ref, Object value) {
+            if (paymentRefs.containsValue(ref)) { payments.add(ref); return; }
+            if (ref == userDoc && value instanceof UserQuota quota) { userQuota = quota; return; }
             if (ref == userDoc && value instanceof Map<?, ?> updates) {
                 if (userQuota == null) {
                     userQuota = new UserQuota();
@@ -319,6 +471,8 @@ class QuotaReservationConcurrencyTest {
             if (plan instanceof String planValue) {
                 quota.plan = planValue;
             }
+            Object paidCredits = updates.get("paidCredits");
+            if (paidCredits instanceof Number n) quota.paidCredits = n.longValue();
             Object quotaUsed = updates.get("quotaUsed");
             if (quotaUsed instanceof Number quotaUsedValue) {
                 quota.quotaUsed = quotaUsedValue.longValue();

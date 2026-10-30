@@ -14,14 +14,15 @@ public record QuotaStatusResponse(
             long usageCount,
             long limit,
             long remaining,
-            PlanType plan) {
+            PlanType plan,
+            long paidCredits) {
     }
 
     public static QuotaStatusResponse from(UserQuota userQuota) {
         long remaining = Math.max(0, userQuota.quotaLimit - userQuota.quotaUsed);
         return new QuotaStatusResponse(
                 true,
-                new Quota(userQuota.quotaUsed, userQuota.quotaLimit, remaining, userQuota.getPlanType()),
+                new Quota(userQuota.quotaUsed, userQuota.quotaLimit, remaining, userQuota.getPlanType(), userQuota.paidCredits),
                 true);
     }
 }

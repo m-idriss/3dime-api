@@ -1,7 +1,5 @@
 package com.dime.api.feature.subscription;
 
-import com.dime.api.feature.converter.PlanType;
-import com.dime.api.feature.converter.QuotaService;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.model.Event;
 import jakarta.inject.Inject;
@@ -14,7 +12,6 @@ import org.eclipse.microprofile.openapi.annotations.extensions.Extension;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * Handles incoming Stripe webhook events.
@@ -28,9 +25,6 @@ public class StripeWebhookResource {
 
     @Inject
     StripeService stripeService;
-
-    @Inject
-    QuotaService quotaService;
 
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
@@ -59,43 +53,21 @@ public class StripeWebhookResource {
 
         log.info("Received Stripe event: {} ({})", event.getType(), event.getId());
 
-        switch (event.getType()) {
-            case "customer.subscription.created", "customer.subscription.updated" ->
-                    handleSubscriptionActivated(event);
-            case "customer.subscription.deleted" ->
-                    handleSubscriptionDeleted(event);
-            default -> log.debug("Unhandled Stripe event type: {}", event.getType());
+        try {
+            switch (event.getType()) {
+                case "checkout.session.completed", "checkout.session.async_payment_succeeded" ->
+                        stripeService.handleCheckoutEvent(event);
+                case "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted" ->
+                        stripeService.handleSubscriptionEvent(event);
+                default -> log.debug("Unhandled Stripe event type: {}", event.getType());
+            }
+        } catch (com.stripe.exception.StripeException e) {
+            throw new com.dime.api.feature.shared.exception.ExternalServiceException(
+                    "Stripe", "Unable to reconcile webhook; retry required", e);
         }
 
-        // Always return 200 to acknowledge receipt — Stripe retries on non-2xx
+        // Acknowledge only after successful fulfillment; failures propagate so Stripe retries.
         return Response.ok(Map.of("received", true)).build();
     }
 
-    private void handleSubscriptionActivated(Event event) {
-        Optional<Map.Entry<String, PlanType>> resolved =
-                stripeService.resolveUserPlanFromSubscription(event);
-
-        resolved.ifPresentOrElse(
-                entry -> {
-                    String userId = entry.getKey();
-                    PlanType planType = entry.getValue();
-                    log.info("Activating plan {} for user {} (event={})", planType, userId, event.getId());
-                    quotaService.updateUserPlan(userId, planType);
-                },
-                () -> log.warn("Could not resolve user/plan from event {}", event.getId()));
-    }
-
-    private void handleSubscriptionDeleted(Event event) {
-        Optional<Map.Entry<String, PlanType>> resolved =
-                stripeService.resolveUserPlanFromSubscription(event);
-
-        resolved.ifPresentOrElse(
-                entry -> {
-                    String userId = entry.getKey();
-                    log.info("Downgrading user {} to FREE after subscription cancellation (event={})",
-                            userId, event.getId());
-                    quotaService.updateUserPlan(userId, PlanType.FREE);
-                },
-                () -> log.warn("Could not resolve user from cancelled subscription event {}", event.getId()));
-    }
 }

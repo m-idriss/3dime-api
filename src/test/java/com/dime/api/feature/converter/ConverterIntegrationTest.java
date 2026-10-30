@@ -136,10 +136,9 @@ public class ConverterIntegrationTest {
             .when().get("/v1/converter/plans")
             .then()
                 .statusCode(200)
-                .body("size()", greaterThanOrEqualTo(4))
-                .body("plan", hasItems("FREE", "PRO", "BUSINESS", "UNLIMITED"))
+                .body("size()", is(2))
+                .body("plan", hasItems("FREE", "PLUS"))
                 .body("find { it.plan == 'FREE' }.limit", is(3))
-                .body("find { it.plan == 'PRO' }.limit", is(100))
-                .body("find { it.plan == 'BUSINESS' }.limit", is(120));
+                .body("find { it.plan == 'PLUS' }.limit", is(15));
     }
 }
