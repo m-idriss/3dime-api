@@ -14,6 +14,9 @@ regressions does not authorize production rollout or mark epic #214 complete.
   COUNT/UNTIL combination instead of accepting any FREQ prefix.
 - Emit a UTC DTSTAMP for new output and preserve validated stamps on replay.
 - Accept quoted zone identifiers and warn about ambiguous overlap timestamps.
+- Decode text escapes in one pass so an escaped literal backslash followed by
+  n or N is not mistaken for a newline; preserve escaped punctuation on replay.
+- Reject duplicate property parameters, including conflicting TZID values.
 - Use English synthetic labels and Unicode escape sequences in new tests.
 
 The targeted pure-Java harness compiles actual normalizer/model/ICS utility and

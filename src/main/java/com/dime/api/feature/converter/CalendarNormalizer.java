@@ -289,7 +289,10 @@ public class CalendarNormalizer {
                         && parameterValue.endsWith("\"")) {
                     parameterValue = parameterValue.substring(1, parameterValue.length() - 1);
                 }
-                parameters.put(head[i].substring(0, equals).toUpperCase(Locale.ROOT), parameterValue);
+                String parameterName = head[i].substring(0, equals).toUpperCase(Locale.ROOT);
+                if (parameters.putIfAbsent(parameterName, parameterValue) != null) {
+                    throw invalid("duplicate_property_parameter", "The AI provider returned duplicate property parameters.");
+                }
             }
         }
         return new Property(name, parameters, line.substring(colon + 1));
@@ -392,8 +395,25 @@ public class CalendarNormalizer {
     }
 
     private String unescape(String value) {
-        return value.replace("\\n", "\n").replace("\\N", "\n")
-                .replace("\\,", ",").replace("\\;", ";").replace("\\\\", "\\");
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < value.length(); i++) {
+            char current = value.charAt(i);
+            if (current == '\\' && i + 1 < value.length()) {
+                char next = value.charAt(i + 1);
+                if (next == 'n' || next == 'N') {
+                    result.append('\n');
+                    i++;
+                } else if (next == '\\' || next == ',' || next == ';') {
+                    result.append(next);
+                    i++;
+                } else {
+                    result.append(current);
+                }
+            } else {
+                result.append(current);
+            }
+        }
+        return result.toString();
     }
 
     private String escape(String value) {

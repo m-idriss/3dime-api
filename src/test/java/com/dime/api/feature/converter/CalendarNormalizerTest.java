@@ -250,6 +250,38 @@ class CalendarNormalizerTest {
         assertEquals(List.of("timezone_ambiguous:event[0]:Europe/Paris"), result.warnings());
     }
 
+    @Test
+    void preservesLiteralBackslashBeforeNewlineEscapeLetters() {
+        for (String suffix : List.of("n", "N")) {
+            String title = "Synthetic literal " + "\\".repeat(2) + suffix;
+            String input = calendar("BEGIN:VEVENT\nSUMMARY:" + title
+                    + "\nDTSTART:20260101T090000Z\nEND:VEVENT");
+            String first = normalizer.normalize(input, "UTC").icsContent();
+            assertTrue(first.contains("SUMMARY:" + title + "\r\n"));
+            assertEquals(first, normalizer.normalize(first, "UTC").icsContent());
+        }
+    }
+
+    @Test
+    void preservesEscapedPunctuationAndNewlinesWithoutPropertyInjection() {
+        String title = "Synthetic\\; planning\\, review\\nATTENDEE:demo@example.invalid";
+        String first = normalizer.normalize(calendar("BEGIN:VEVENT\nSUMMARY:" + title
+                + "\nDTSTART:20260101T090000Z\nEND:VEVENT"), "UTC").icsContent();
+        assertTrue(first.contains("SUMMARY:" + title));
+        assertFalse(first.contains("\r\nATTENDEE:"));
+        assertEquals(first, normalizer.normalize(first, "UTC").icsContent());
+    }
+
+    @Test
+    void rejectsConflictingDuplicateTimezoneParameters() {
+        assertThrows(ProcessingException.class, () -> normalizer.normalize(calendar("""
+                BEGIN:VEVENT
+                SUMMARY:Synthetic conflicting zones
+                DTSTART;TZID=Europe/Paris;tzid=UTC:20260101T090000
+                END:VEVENT
+                """), "UTC"));
+    }
+
     private String calendar(String events) {
         return "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n" + events.strip() + "\r\nEND:VCALENDAR\r\n";
     }
