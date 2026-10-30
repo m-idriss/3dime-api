@@ -201,6 +201,55 @@ class CalendarNormalizerTest {
         }
     }
 
+    @Test
+    void validatesRecurrenceValuesAndMutuallyExclusiveFields() {
+        for (String rule : List.of("FREQ=BOGUS", "FREQ=DAILY;COUNT=0", "FREQ=DAILY;COUNT=1,2",
+                "FREQ=DAILY;COUNT=2;UNTIL=20261201T000000Z", "FREQ=DAILY;FREQ=WEEKLY",
+                "FREQ=MONTHLY;BYMONTHDAY=32", "FREQ=WEEKLY;BYDAY=0MO", "FREQ=DAILY;BYHOUR=24",
+                "FREQ=DAILY;UNTIL=20260230T000000Z", "FREQ=DAILY;UNKNOWN=1")) {
+            assertThrows(ProcessingException.class, () -> normalizer.normalize(calendar(
+                    "BEGIN:VEVENT\nSUMMARY:Synthetic recurrence\nDTSTART:20260101T090000Z\nRRULE:"
+                            + rule + "\nEND:VEVENT"), "UTC"));
+        }
+        for (String rule : List.of("FREQ=WEEKLY;BYDAY=MO,WE;COUNT=10",
+                "FREQ=MONTHLY;BYDAY=-1FR;INTERVAL=2", "FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=29")) {
+            assertTrue(normalizer.normalize(calendar(
+                    "BEGIN:VEVENT\nSUMMARY:Synthetic recurrence\nDTSTART:20260101T090000Z\nRRULE:"
+                            + rule + "\nEND:VEVENT"), "UTC").icsContent().contains("RRULE:" + rule));
+        }
+    }
+
+    @Test
+    void emitsUtcCreationStampAndPreservesItDuringReplay() {
+        String first = normalizer.normalize(calendar("""
+                BEGIN:VEVENT
+                SUMMARY:Synthetic creation timestamp
+                DTSTART:20260101T090000Z
+                END:VEVENT
+                """), "UTC").icsContent();
+        assertTrue(first.lines().anyMatch(line -> line.matches("DTSTAMP:[0-9]{8}T[0-9]{6}Z")));
+        assertEquals(first, normalizer.normalize(first, "UTC").icsContent());
+        assertThrows(ProcessingException.class, () -> normalizer.normalize(calendar("""
+                BEGIN:VEVENT
+                SUMMARY:Invalid creation timestamp
+                DTSTART:20260101T090000Z
+                DTSTAMP:20260230T000000Z
+                END:VEVENT
+                """), "UTC"));
+    }
+
+    @Test
+    void acceptsQuotedZoneIdsAndWarnsForAmbiguousOverlapTimes() {
+        var result = normalizer.normalize(calendar("""
+                BEGIN:VEVENT
+                SUMMARY:Synthetic fall transition
+                DTSTART;TZID="Europe/Paris":20261025T023000
+                END:VEVENT
+                """), "UTC");
+        assertTrue(result.icsContent().contains("DTSTART;TZID=Europe/Paris:20261025T023000"));
+        assertEquals(List.of("timezone_ambiguous:event[0]:Europe/Paris"), result.warnings());
+    }
+
     private String calendar(String events) {
         return "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n" + events.strip() + "\r\nEND:VCALENDAR\r\n";
     }

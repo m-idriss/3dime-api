@@ -32,7 +32,7 @@ public class CalendarNormalizer {
     private static final int MAX_PROVIDER_OUTPUT = 1_000_000;
     private static final int MAX_EVENTS = 500;
     private static final Set<String> SINGLE_VALUE_PROPERTIES =
-            Set.of("SUMMARY", "DTSTART", "DTEND", "UID", "RRULE");
+            Set.of("SUMMARY", "DTSTART", "DTEND", "UID", "RRULE", "DTSTAMP");
 
     public NormalizedCalendar normalize(String providerOutput, String requestedTimeZone) {
         if (providerOutput == null || providerOutput.isBlank() || "null".equalsIgnoreCase(providerOutput.trim())) {
@@ -103,9 +103,12 @@ public class CalendarNormalizer {
         }
 
         String recurrence = optionalRaw(properties, "RRULE");
-        if (recurrence != null && (!recurrence.startsWith("FREQ=") || recurrence.contains("\r")
-                || recurrence.contains("\n") || recurrence.length() > 500)) {
-            throw invalid("invalid_recurrence", "event[" + index + "].recurrence is invalid.");
+        if (recurrence != null) {
+            validateRecurrence(recurrence, start.time(), index);
+        }
+        if (!start.time().allDay() && start.time().zone().getRules()
+                .getValidOffsets(start.time().dateTime()).size() > 1) {
+            warnings.add("timezone_ambiguous:event[" + index + "]:" + start.time().zone().getId());
         }
 
         String location = optionalText(properties, "LOCATION");
@@ -116,7 +119,102 @@ public class CalendarNormalizer {
             uid = UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8)) + "@photocalia.com";
         }
 
-        return new CalendarEventModel(title, start.time(), end, location, description, recurrence, uid);
+        return new CalendarEventModel(title, start.time(), end, location, description, recurrence, uid, timestamp(properties, index));
+    }
+
+    private String timestamp(Map<String, Property> properties, int index) {
+        String stamp = optionalRaw(properties, "DTSTAMP");
+        if (stamp == null) {
+            return DATE_TIME.format(LocalDateTime.now(ZoneOffset.UTC)) + "Z";
+        }
+        try {
+            if (!stamp.endsWith("Z")) {
+                throw new DateTimeException("UTC timestamp required");
+            }
+            LocalDateTime.parse(stamp.substring(0, stamp.length() - 1), DATE_TIME);
+            return stamp;
+        } catch (DateTimeException e) {
+            throw invalid("invalid_timestamp", "event[" + index + "].timestamp is invalid.");
+        }
+    }
+
+    private void validateRecurrence(String rule, CalendarEventModel.EventTime start, int index) {
+        try {
+            if (rule.length() > 500) throw new IllegalArgumentException();
+            Map<String, String> fields = new LinkedHashMap<>();
+            for (String part : rule.split(";", -1)) {
+                String[] pair = part.split("=", -1);
+                if (pair.length != 2 || pair[1].isEmpty() || fields.putIfAbsent(pair[0], pair[1]) != null)
+                    throw new IllegalArgumentException();
+            }
+            String frequency = fields.get("FREQ");
+            if (frequency == null || !Set.of("SECONDLY", "MINUTELY", "HOURLY", "DAILY", "WEEKLY",
+                    "MONTHLY", "YEARLY").contains(frequency)) throw new IllegalArgumentException();
+            if (fields.containsKey("COUNT") && fields.containsKey("UNTIL")) throw new IllegalArgumentException();
+            for (var field : fields.entrySet()) {
+                String key = field.getKey(), value = field.getValue();
+                switch (key) {
+                    case "FREQ" -> { }
+                    case "COUNT", "INTERVAL" -> {
+                        if (value.contains(",")) throw new IllegalArgumentException();
+                        range(value, 1, Integer.MAX_VALUE, false);
+                    }
+                    case "WKST" -> { if (!value.matches("MO|TU|WE|TH|FR|SA|SU")) throw new IllegalArgumentException(); }
+                    case "UNTIL" -> {
+                        if (start.allDay()) LocalDate.parse(value, DATE);
+                        else {
+                            if (!value.endsWith("Z")) throw new IllegalArgumentException();
+                            LocalDateTime.parse(value.substring(0, value.length() - 1), DATE_TIME);
+                        }
+                    }
+                    case "BYSECOND" -> range(value, 0, 60, false);
+                    case "BYMINUTE" -> range(value, 0, 59, false);
+                    case "BYHOUR" -> range(value, 0, 23, false);
+                    case "BYMONTH" -> range(value, 1, 12, false);
+                    case "BYMONTHDAY" -> {
+                        if ("WEEKLY".equals(frequency)) throw new IllegalArgumentException();
+                        range(value, -31, 31, true);
+                    }
+                    case "BYYEARDAY" -> {
+                        if (Set.of("DAILY", "WEEKLY", "MONTHLY").contains(frequency)) throw new IllegalArgumentException();
+                        range(value, -366, 366, true);
+                    }
+                    case "BYWEEKNO" -> {
+                        if (!"YEARLY".equals(frequency)) throw new IllegalArgumentException();
+                        range(value, -53, 53, true);
+                    }
+                    case "BYSETPOS" -> {
+                        if (fields.keySet().stream().noneMatch(k -> k.startsWith("BY") && !k.equals("BYSETPOS")))
+                            throw new IllegalArgumentException();
+                        range(value, -366, 366, true);
+                    }
+                    case "BYDAY" -> {
+                        for (String day : value.split(",", -1)) {
+                            if (!day.matches("[+-]?[0-9]{0,2}(MO|TU|WE|TH|FR|SA|SU)")) throw new IllegalArgumentException();
+                            String ordinal = day.substring(0, day.length() - 2);
+                            if (!ordinal.isEmpty()) {
+                                if (!Set.of("MONTHLY", "YEARLY").contains(frequency) || fields.containsKey("BYWEEKNO"))
+                                    throw new IllegalArgumentException();
+                                range(ordinal, -53, 53, true);
+                            }
+                        }
+                    }
+                    default -> throw new IllegalArgumentException();
+                }
+                if (start.allDay() && Set.of("BYHOUR", "BYMINUTE", "BYSECOND").contains(key))
+                    throw new IllegalArgumentException();
+            }
+        } catch (IllegalArgumentException | DateTimeException e) {
+            throw invalid("invalid_recurrence", "event[" + index + "].recurrence is invalid or unsupported.");
+        }
+    }
+
+    private void range(String values, int min, int max, boolean nonzero) {
+        for (String value : values.split(",", -1)) {
+            if (!value.matches("[+-]?[0-9]{1,10}")) throw new IllegalArgumentException();
+            int number = Integer.parseInt(value);
+            if (number < min || number > max || (nonzero && number == 0)) throw new IllegalArgumentException();
+        }
     }
 
     private EventTimeResult parseTime(Property property, ZoneId defaultZone, int index) {
@@ -186,8 +284,12 @@ public class CalendarNormalizer {
         for (int i = 1; i < head.length; i++) {
             int equals = head[i].indexOf('=');
             if (equals > 0) {
-                parameters.put(head[i].substring(0, equals).toUpperCase(Locale.ROOT),
-                        head[i].substring(equals + 1));
+                String parameterValue = head[i].substring(equals + 1);
+                if (parameterValue.length() >= 2 && parameterValue.startsWith("\"")
+                        && parameterValue.endsWith("\"")) {
+                    parameterValue = parameterValue.substring(1, parameterValue.length() - 1);
+                }
+                parameters.put(head[i].substring(0, equals).toUpperCase(Locale.ROOT), parameterValue);
             }
         }
         return new Property(name, parameters, line.substring(colon + 1));
@@ -202,6 +304,7 @@ public class CalendarNormalizer {
         for (CalendarEventModel event : events) {
             lines.add("BEGIN:VEVENT");
             lines.add("UID:" + escape(event.uid()));
+            lines.add("DTSTAMP:" + event.timestamp());
             lines.add("SUMMARY:" + escape(event.title()));
             lines.add(formatTime("DTSTART", event.start()));
             if (event.end() != null) {

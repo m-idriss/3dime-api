@@ -14,7 +14,8 @@ record CalendarEventModel(
         String location,
         String description,
         String recurrence,
-        String uid) {
+        String uid,
+        String timestamp) {
 
     record EventTime(LocalDate date, LocalDateTime dateTime, ZoneId zone, boolean utc) {
         static EventTime allDay(LocalDate date) {

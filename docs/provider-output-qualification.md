@@ -10,6 +10,10 @@ regressions does not authorize production rollout or mark epic #214 complete.
 - Reject local timestamps in daylight-saving gaps instead of allowing Java's
   zone conversion to silently move the intended appointment.
 - Preserve valid leap days and explicit UTC instants across DST boundaries.
+- Validate the supported recurrence fields, ranges and mutually exclusive
+  COUNT/UNTIL combination instead of accepting any FREQ prefix.
+- Emit a UTC DTSTAMP for new output and preserve validated stamps on replay.
+- Accept quoted zone identifiers and warn about ambiguous overlap timestamps.
 - Use English synthetic labels and Unicode escape sequences in new tests.
 
 The targeted pure-Java harness compiles actual normalizer/model/ICS utility and
@@ -30,11 +34,15 @@ and localized text, all-day/multiple events, DST, missing and ambiguous fields.
 Record exact model/version, bounded timeout, no retries/fallback, request count
 and usage without logging document content or credentials.
 
-Further parser review is also required before rollout: recurrence validation is
-currently only a shallow FREQ prefix check; generated calendars lack DTSTAMP;
-ambiguous overlap timestamps and quoted TZID parameters need explicit policy.
-An independent RFC 5545 parser must validate golden outputs. These are open
-qualification gaps, not claims of RFC-complete validation.
+Four handwritten synthetic outputs were parsed independently with the existing
+ical.js dependency, asserting required event properties and selected UTC,
+all-day and recurrence semantics. This is not a live provider accuracy test or
+a complete RFC 5545 conformance proof. The supported RRULE subset rejects
+unknown extensions. Timed UNTIL must be UTC; all-day UNTIL must be a date.
+Local overlap times retain the zone and emit an ambiguity warning. Timezone
+component interoperability across importing clients still requires golden
+corpus qualification, including recurrence across DST. Do not infer complete
+RFC support or extraction accuracy from syntax parsing.
 
 Do not enable the normalizer in production, weaken tests, call a production
 conversion endpoint or use real customer documents to clear these gates.
