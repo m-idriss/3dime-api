@@ -53,7 +53,7 @@
     <compiler-plugin.version>3.16.0</compiler-plugin.version>
     <dependency-plugin.version>3.11.0</dependency-plugin.version>
     <surefire-plugin.version>3.6.0</surefire-plugin.version>
-    <enforcer-plugin.version>3.6.3</enforcer-plugin.version>
+    <enforcer-plugin.version>3.7.0</enforcer-plugin.version>
 
     <!-- Dependency Versions -->
     <quarkus-google-cloud-firestore.version>2.24.0</quarkus-google-cloud-firestore.version>
