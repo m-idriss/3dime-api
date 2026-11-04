@@ -1,19 +1,43 @@
-# QA — reviewed backend coverage proposals
+<!-- photocalia-team:v1 -->
+<!-- role:qa -->
+> Unverified model suggestions, including the summary and all assertions. A successful run validates transport and schema, not factual accuracy. Missing evidence must not be interpreted as missing tests or controls. Verify every recommendation against source and current CI before implementation.
 
-## Verified baseline
+## QA — bounded autonomous proposal
 
-- [API qualification 40703939841](https://github.com/m-idriss/3dime-api/actions/runs/40703939841) passed 150 tests with no failures, errors or skips on the reviewed release tree. Existing tests cover real Firestore client/tracing construction using controlled fixtures.
-- API CI checks the generated OpenAPI contract and deterministic packaging. This is not a claim that every HTTP/provider interaction is covered.
-- The POM skipITs setting alone cannot establish whether integration/compatibility checks run in CI.
+This analysis does not implement application changes. Proposed tasks require review. Hypotheses are not supported by production metrics.
 
-## Proposals requiring investigation
+<pre>{
+  "summary": "photocalia repo shows robust CI workflows including testing, SEO checks, and blog generation scripts with node.js engine requirements. 3dime-api repo uses Java 21 and Quarkus 3.40.1.1 with integration tests skipped by default in pom.xml. Security scan failed in 3dime-api, while photocalia passed all checks.",
+  "hypotheses": [
+    "photocalia's testing and SEO validation workflows are comprehensive and stable.",
+    "3dime-api disables integration tests by default, possibly risking untested code integration.",
+    "3dime-api has unresolved security vulnerabilities as indicated by failed security scan.",
+    "photocalia's build scripts and pre/post hooks ensure clean and consistent builds and tests.",
+    "security issue in 3dime-api may delay releases or require urgent fixes."
+  ],
+  "tasks": [
+    {
+      "repo": "m-idriss/3dime-api",
+      "title": "Investigate and Resolve Security Scan Failures",
+      "rationale": "Failed security scan indicates vulnerabilities or misconfigurations needing review to ensure production safety and compliance.",
+      "acceptanceCriteria": "Security scan completes successfully with no new critical or high severity findings on the main branch.",
+      "risk": "high",
+      "needsApproval": true
+    },
+    {
+      "repo": "m-idriss/3dime-api",
+      "title": "Assess Impact of Skipped Integration Tests",
+      "rationale": "Integration tests are globally disabled by default, risking unnoticed integration errors and regression.",
+      "acceptanceCriteria": "Document integration test status and make a plan to enable critical integration tests in CI or justify testing approach in README or dev docs.",
+      "risk": "medium",
+      "needsApproval": true
+    }
+  ]
+}</pre>
 
-1. Read test sources and CI commands, distinguish test categories and document specific untested boundaries. Do not merely toggle skipITs or assert that integration testing is absent.
-2. If a new integration test is justified, use synthetic data and isolated/emulated dependencies, with no production Firestore access or real provider/customer requests.
-3. Keep PR #256 separate until the required controlled provider corpus has been qualified; documentation merge does not approve its parser/API behavior.
+Observed: 2026-11-04T08:50:17.147Z.
 
-## Interpretation and execution boundary
+- m-idriss/photocalia: 63b402b305edd05686346cee165dbb8d853316c7
+- m-idriss/3dime-api: 4dc3e45afe423433fbb006c783f6a74beb3438f9
 
-Reviewed on October 28, 2026. The original model proposals came from [planning run 40737332878](https://github.com/m-idriss/photocalia-agents/actions/runs/40737332878), which inspected bounded public build descriptors and workflow metadata, not full source or customer metrics. Unsupported absence/coverage assertions have been removed. These documents are planning records, not executable tasks or evidence that the suggested features are missing.
-
-Do not infer a missing control from missing observations. Before implementation, inspect the current source, existing tests and workflow definitions, record a concrete gap and approve a bounded task. These proposals do not expand the automatic code/release catalogue. No payment, pricing, customer-data, authentication, production-provider or outreach operation is authorized by merging this document.
+Scope: planning only from bounded public evidence. No full source audit or customer metrics. No merge, deployment, pricing, payment, customer-data access or outreach. Product PR publication, when separately credentialed, changes one documentation file only; this proposal workflow edits documentation only. The separate code-writer.yml is restricted to its reviewed task catalogue.
