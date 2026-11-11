@@ -1,16 +1,35 @@
-# Growth — reviewed API discoverability proposal
+<!-- photocalia-team:v1 -->
+<!-- role:growth -->
+> Unverified model suggestions, including the summary and all assertions. A successful run validates transport and schema, not factual accuracy. Missing evidence must not be interpreted as missing tests or controls. Verify every recommendation against source and current CI before implementation.
 
-## Verified baseline
+## GROWTH — bounded autonomous proposal
 
-- The repository already versions an OpenAPI contract at `contracts/openapi-v1.json`. Frontend CI compares its snapshot with this upstream contract.
-- The planning run did not inventory deployed API documentation or measure search visibility. A backend's lack of frontend SEO scripts is not evidence of a product defect.
+This analysis does not implement application changes. Proposed tasks require review. Hypotheses are not supported by production metrics.
 
-## Proposal requiring investigation
+<pre>{
+  "summary": "Photocalia has thorough SEO and link checks with successful builds and tests, indicating good frontend readiness. The 3dime-api backend shows a failed security scan, but no evidence about its frontend public SEO or accessibility status is present.",
+  "hypotheses": [
+    "Photocalia's blog generation scripts support SEO content freshness and accessibility improvements.",
+    "Successful dead link checks in Photocalia imply reliable URL linking improves user experience and SEO.",
+    "Photocalia's dedicated SEO check script suggests ongoing SEO monitoring capabilities.",
+    "3dime-api lacks visible frontend SEO checks, possibly reducing discoverability if it has a public UI.",
+    "Integration tests skipped in 3dime-api hint at potential risks in interface consistency affecting frontend functionality and indirectly SEO."
+  ],
+  "tasks": [
+    {
+      "repo": "m-idriss/3dime-api",
+      "title": "Assess frontend SEO and accessibility readiness",
+      "rationale": "No evidence of frontend SEO or accessibility checks in 3dime-api repo; assessing public UI SEO health will support discoverability improvements.",
+      "acceptanceCriteria": "Documented audit report on current SEO tags and accessibility compliance status of any public-facing frontend components.",
+      "risk": "medium",
+      "needsApproval": true
+    }
+  ]
+}</pre>
 
-Inventory existing public API documentation and links from public marketing pages. If a verified discoverability gap exists, prepare a bounded documentation/linking proposal with concrete acceptance criteria. Do not claim that documentation is absent, create a new frontend, deploy a public page or publish content merely to satisfy the original model suggestion.
+Observed: 2026-11-11T08:50:22.896Z.
 
-## Interpretation and execution boundary
+- m-idriss/photocalia: 63b402b305edd05686346cee165dbb8d853316c7
+- m-idriss/3dime-api: 4dc3e45afe423433fbb006c783f6a74beb3438f9
 
-Reviewed on October 28, 2026. The original model proposals came from [planning run 40737332878](https://github.com/m-idriss/photocalia-agents/actions/runs/40737332878), which inspected bounded public build descriptors and workflow metadata, not full source or customer metrics. Unsupported absence/coverage assertions have been removed. These documents are planning records, not executable tasks or evidence that the suggested features are missing.
-
-Do not infer a missing control from missing observations. Before implementation, inspect the current source, existing tests and workflow definitions, record a concrete gap and approve a bounded task. These proposals do not expand the automatic code/release catalogue. No payment, pricing, customer-data, authentication, production-provider or outreach operation is authorized by merging this document.
+Scope: planning only from bounded public evidence. No full source audit or customer metrics. No merge, deployment, pricing, payment, customer-data access or outreach. Product PR publication, when separately credentialed, changes one documentation file only; this proposal workflow edits documentation only. The separate code-writer.yml is restricted to its reviewed task catalogue.
